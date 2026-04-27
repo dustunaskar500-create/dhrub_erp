@@ -1,0 +1,54 @@
+=================================================================
+DHRUB FOUNDATION ERP - ROLE-BASED ACCESS CONTROL (RBAC) GUIDE
+=================================================================
+
+AVAILABLE ROLES:
+----------------
+1. super_admin  - Full system access (God mode)
+2. admin        - Full administrative access
+3. manager      - Operations and program management
+4. accountant   - Financial management
+5. hr           - Human resources management
+6. editor       - Content and data entry
+7. viewer       - Read-only access
+
+PERMISSION MATRIX:
+-----------------
+Module          | super_admin | admin | manager | accountant | hr | editor | viewer
+----------------|-------------|-------|---------|------------|----|---------|---------
+Dashboard       |     ✓       |   ✓   |    ✓    |     ✓      | ✓  |    ✓    |   ✓
+Donations       |     ✓       |   ✓   |    ✓    |     ✓      |    |    ✓    |
+Donors          |     ✓       |   ✓   |    ✓    |            |    |    ✓    |
+Programs        |     ✓       |   ✓   |    ✓    |            |    |    ✓    |
+Projects        |     ✓       |   ✓   |    ✓    |            |    |         |
+Expenses        |     ✓       |   ✓   |         |     ✓      |    |         |
+Inventory       |     ✓       |   ✓   |    ✓    |            |    |         |
+Employees       |     ✓       |   ✓   |         |            | ✓  |         |
+Payroll         |     ✓       |   ✓   |         |            | ✓  |         |
+Volunteers      |     ✓       |   ✓   |    ✓    |            | ✓  |         |
+Ledger          |     ✓       |   ✓   |         |     ✓      |    |         |
+Reports         |     ✓       |   ✓   |    ✓    |     ✓      | ✓  |         |
+Members         |     ✓       |   ✓   |    ✓    |            |    |         |
+Gallery         |     ✓       |   ✓   |    ✓    |            |    |    ✓    |   ✓
+Invoices        |     ✓       |   ✓   |    ✓    |     ✓      |    |         |
+Activity Logs   |     ✓       |   ✓   |         |            |    |         |
+Settings        |     ✓       |   ✓   |         |            |    |         |
+
+TEST USERS (password: test123 for all):
+--------------------------------------
+- manager@dhrubfoundation.org      (Manager)
+- accountant@dhrubfoundation.org   (Accountant)
+- hr@dhrubfoundation.org           (HR Manager)
+- editor@dhrubfoundation.org       (Editor)
+- viewer@dhrubfoundation.org       (Viewer)
+
+ADMIN USER (password: admin123):
+--------------------------------
+- admin@dhrubfoundation.org        (Super Admin)
+
+NOTES:
+------
+- Users only see menu items they have access to
+- API requests are blocked for unauthorized modules
+- Activity logging tracks all user actions
+- Super Admin can create/modify user roles

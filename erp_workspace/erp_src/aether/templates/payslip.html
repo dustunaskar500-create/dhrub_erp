@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Dhrub Foundation - Payslip</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; color: #333; }
+        h1 { color: #10b981; text-align: center; }
+        .header { text-align: center; margin-bottom: 30px; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { border: 1px solid #333; padding: 10px; text-align: left; }
+        th { background-color: #f1f5f9; }
+        .total { font-weight: bold; background-color: #ecfdf5; }
+        .footer { margin-top: 40px; text-align: center; font-size: 0.9em; color: #666; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Dhrub Foundation</h1>
+        <h2>Salary Payslip</h2>
+        <p><strong>{{MONTH}} {{YEAR}}</strong></p>
+    </div>
+
+    <p><strong>Employee Name:</strong> {{EMPLOYEE_NAME}}</p>
+    <p><strong>Employee Code:</strong> {{EMPLOYEE_CODE}}</p>
+    <p><strong>Designation:</strong> {{DESIGNATION}}</p>
+
+    <table>
+        <tr>
+            <th>Description</th>
+            <th>Amount (₹)</th>
+        </tr>
+        <tr><td>Basic Salary</td><td>{{BASIC_SALARY}}</td></tr>
+        <tr><td>HRA</td><td>{{HRA}}</td></tr>
+        <tr><td>DA</td><td>{{DA}}</td></tr>
+        <tr><td>Travel Allowance</td><td>{{TRAVEL_ALLOWANCE}}</td></tr>
+        <tr><td>Medical Allowance</td><td>{{MEDICAL_ALLOWANCE}}</td></tr>
+        <tr><td>Special Allowance</td><td>{{SPECIAL_ALLOWANCE}}</td></tr>
+        <tr><td>Other Allowances</td><td>{{OTHER_ALLOWANCES}}</td></tr>
+        <tr class="total"><td><strong>Gross Salary</strong></td><td><strong>{{GROSS_SALARY}}</strong></td></tr>
+        
+        <tr><td>PF Deduction</td><td>{{PF_DEDUCTION}}</td></tr>
+        <tr><td>ESI Deduction</td><td>{{ESI_DEDUCTION}}</td></tr>
+        <tr><td>TDS Deduction</td><td>{{TDS_DEDUCTION}}</td></tr>
+        <tr><td>Professional Tax</td><td>{{PROFESSIONAL_TAX}}</td></tr>
+        <tr><td>Other Deductions</td><td>{{OTHER_DEDUCTIONS}}</td></tr>
+        <tr class="total"><td><strong>Total Deductions</strong></td><td><strong>{{TOTAL_DEDUCTIONS}}</strong></td></tr>
+        
+        <tr class="total"><td><strong>NET SALARY</strong></td><td><strong>{{NET_SALARY}}</strong></td></tr>
+    </table>
+
+    <div class="footer">
+        <p>Generated on: {{DATE}} | This is a computer-generated document</p>
+    </div>
+</body>
+</html>

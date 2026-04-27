@@ -1,0 +1,11 @@
+# Aether root — .htaccess
+# Protects sensitive files from direct HTTP access.
+
+# Block direct access to .env and other config files
+<FilesMatch "^(\.env|\.env\..*|.*\.md|.*\.tsx|.*\.zip)$">
+    Order deny,allow
+    Deny from all
+</FilesMatch>
+
+# Prevent directory listing
+Options -Indexes

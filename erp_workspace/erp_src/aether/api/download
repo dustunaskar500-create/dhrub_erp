@@ -1,0 +1,44 @@
+# Aether API — .htaccess
+# Hostinger/cPanel shared hosting fix.
+#
+# ROOT PROBLEM: The parent .htaccess (ERP's auth layer) rewrites ALL requests
+# to the login page for unauthenticated users — before this file even runs.
+# Aether handles its own JWT auth in PHP, so we must stop the parent rewrites
+# from firing on any file inside this folder.
+
+# ── Stop parent .htaccess rewrites from reaching this directory ───────────────
+# InheritDownBefore: our rules run BEFORE the parent's (Apache 2.4.8+)
+# Without this, the parent auth-redirect fires first regardless of what we write here.
+RewriteOptions InheritDownBefore
+
+RewriteEngine On
+
+# Pass the Authorization header into PHP environment variables.
+# Hostinger strips Authorization headers by default — both ENV vars are needed.
+RewriteCond %{HTTP:Authorization} .+
+RewriteRule ^ - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization},E=REDIRECT_HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+# ── Allow all .php requests to pass through directly — [END] stops ALL further
+# rewrite processing, including any inherited parent rules. ────────────────────
+RewriteRule ^aether\.php$      - [L,END]
+RewriteRule ^auth-check\.php$  - [L,END]
+RewriteRule ^ping\.php$        - [L,END]
+RewriteRule ^send-reminder\.php$ - [L,END]
+RewriteRule ^debug\.php$       - [L,END]
+
+# ── Prevent directory listing ──────────────────────────────────────────────────
+Options -Indexes
+
+# ── Ensure PHP handles .php files ─────────────────────────────────────────────
+<FilesMatch "\.php$">
+    SetHandler application/x-httpd-php
+</FilesMatch>
+
+# ── Pass Authorization header via CGI (Apache 2.4+ alternative) ───────────────
+CGIPassAuth On
+
+# ── Block direct access to internal files ─────────────────────────────────────
+<FilesMatch "^(config|helpers)\.php$">
+    Order deny,allow
+    Deny from all
+</FilesMatch>
