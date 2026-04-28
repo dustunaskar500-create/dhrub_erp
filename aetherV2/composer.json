@@ -1,0 +1,9 @@
+{
+  "name": "aether/v2",
+  "description": "Aether v2 — self-sufficient ERP brain (mPDF optional for PDF receipts)",
+  "require": {
+    "php": ">=8.1",
+    "mpdf/mpdf": "^8.2"
+  },
+  "config": { "vendor-dir": "vendor" }
+}
