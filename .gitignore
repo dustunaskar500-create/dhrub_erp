@@ -81,3 +81,12 @@ memory/test_credentials.md
 # Mobile development
 android-sdk/erp_workspace/erp.zip
 erp_workspace/erp.zip
+-e 
+# Environment and credential files
+.env
+.env.*
+*.env
+credentials.json
+*.pem
+*.key
+.credentials
