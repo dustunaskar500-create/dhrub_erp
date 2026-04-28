@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <meta name="theme-color" content="#000000"/>
+    <meta name="description" content="Dhrub Foundation ERP System"/>
+    <link rel="preconnect" href="https://fonts.googleapis.com"/>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Manrope:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+    <title>Dhrub Foundation ERP</title>
+    <script defer="defer" src="static/js/main.be26a0f2.js"></script>
+    <link href="static/css/main.5d4a45a1.css" rel="stylesheet">
+    <link href="static/css/responsive.css" rel="stylesheet">
+    <link rel="icon" type="image/png" href="favicon.png">
+
+    <style>
+        /* ── CMS Floating Action Button ── */
+        .cms-fab {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 12px;
+        }
+        .cms-fab-btn {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: linear-gradient(135deg, #059669 0%, #047857 100%);
+            color: white;
+            padding: 14px 20px;
+            border-radius: 50px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.95rem;
+            box-shadow: 0 4px 20px rgba(5, 150, 105, 0.4);
+            transition: all 0.3s ease;
+        }
+        .cms-fab-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 25px rgba(5, 150, 105, 0.5);
+        }
+        .cms-fab-btn i { font-size: 1.1rem; }
+
+        @media (max-width: 768px) {
+            .cms-fab-btn span { display: none; }
+            .cms-fab-btn { padding: 16px; border-radius: 50%; }
+        }
+    </style>
+</head>
+<body>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <div id="root"></div>
+
+    <!-- ── CMS Floating Action Button ── -->
+    <div class="cms-fab">
+        <a href="cms/" class="cms-fab-btn" title="Content Management System">
+            <i class="fas fa-edit"></i>
+            <span>Manage Content (CMS)</span>
+        </a>
+    </div>
+
+    <!-- ── Aether v2 — autonomous ERP brain (drop-in module) ── -->
+    <!-- Relative path so it works on both dhrubfoundation.org/dhrub_erp/
+         AND erp.dhrubfoundation.org/ without code changes. -->
+    <script src="aetherV2/panel.js" defer></script>
+</body>
+</html>
