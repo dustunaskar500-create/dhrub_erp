@@ -93,15 +93,28 @@ aetherV2/
 - iteration_1: 97% backend, 100% frontend
 - iteration_2: 100% / 100%
 - iteration_3: 93% backend (3 minor planner bugs) → fixed → verified 100% via direct curl tests
+- iteration_4: 100% backend (21/21 new tests) / 100% frontend (all 6 dashboard tabs + assign modal + reports hub verified)
 
 ## ERP changes required (still only 1 file)
 - **`app.html`** — add `<script src="/aetherV2/panel.js" defer></script>` before `</body>`
 
+## Iteration 4 (Apr 28 2026) — Phase 1 complete + dashboard 2.0
+- **Multi-turn slot filling** (`reasoner.php` + `pending-intents.php`): `record_donation`, `create_donor`, `create_expense`, `update_salary`, `add_inventory_item`, `adjust_inventory`, `create_program`, `create_blog_post`, `send_message`, `approve_expense`, `impact_report`, `csv_import` — Aether now asks follow-up questions when info is missing.
+- **Bulk CSV importer** (`csv-importer.php`): per-module sample CSVs (donors, donations, expenses, employees, volunteers, inventory, programs); preview+execute pipeline with unknown-column filtering and validation; integrated into floating panel via paperclip.
+- **Year-end Impact Reports** (`impact-report.php`): personalised one-page PDF per donor + email + Fast2SMS dispatch as a single plan.
+- **Donation Reminders** (`reminders.php`): 30/60/90+ inactivity buckets with tone-appropriate emails; 90+ cohort escalates to admin.
+- **My Tasks** (`my-tasks.php`): role-aware task list (super_admin sees schema diffs, critical issues, lapsed donors; accountant/manager sees pending expenses; HR sees missing contact info; editor sees blog drafts/gallery captions; manager sees low stock).
+- **Task Assignments** (`task-assignments.php`, NEW): super_admin can re-assign any pending plan to any user with a note; assigned users see plans in their floating-panel Tasks tab.
+- **Reports History + Export** (`reports-history.php`, NEW): timeline of every report Aether has generated (impact reports, reminders, audit-derived module reports); CSV export for all 8 modules.
+- **Dashboard 2.0** (rewritten): six tabs — Overview, Pending Tasks (super-admin all-user view + filters + approve/reject/assign), Reports (live module preview + export + history), Schema Diff, Knowledge Graph (entity search), Audit Trail (filterable, exportable). Assign-task modal, dynamic period/module dropdowns, print-to-PDF report view.
+- **Panel.js fixes**: `loadTasks()` for the Tasks tab; CSV detection in attachment handler; `renderCsvPreview()` flow; "Assigned to me" rendering inside Tasks tab.
+- **New backend endpoints**: `my_tasks`, `all_pending_plans`, `assign_plan`, `assigned_to_me`, `users_list`, `reports_history`, `report_export`, `csv_import_preview`, `csv_import_execute`, `csv_template`, `reminders_scan`.
+- **New DB tables**: `aether_pending_intents`, `aether_csv_imports`, `aether_task_assignments`.
+
 ## Backlog
-- P2 — Multi-turn data collection (e.g. Aether asks follow-up questions when amount missing)
-- P2 — Customisable health-check rules from UI
-- P2 — Bulk import CSV via chat
-- P2 — Force-directed knowledge-graph viewer
-- P3 — Anomaly detection on time-series
+- P2 — Force-directed knowledge-graph viewer (entity-relationship visualisation)
+- P2 — Customisable health-check rules from the dashboard UI
+- P3 — Anomaly detection on time-series (donation drops, expense spikes)
 - P3 — Vision-based caption suggestions (would need local Ollama+LLaVA — out of scope)
 - P3 — Multi-language NLP exemplars
+- P3 — Refactor `reasoner.php` (>1100 LOC) into per-intent planner classes

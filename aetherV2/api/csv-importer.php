@@ -280,13 +280,27 @@ class AetherCsvImporter
     }
 
     private static function insertGeneric(PDO $db, string $table, array $rows, array &$errors): int {
+        // Only allow columns that actually exist in the target table — prevents
+        // unknown-column SQL errors when the CSV has extra fields.
+        $tblCols = [];
+        try {
+            $colStmt = $db->query("SHOW COLUMNS FROM `$table`");
+            foreach ($colStmt->fetchAll(PDO::FETCH_ASSOC) as $c) $tblCols[$c['Field']] = true;
+        } catch (\Throwable $e) {}
+
         $count = 0;
         foreach ($rows as $i => $row) {
             try {
-                $cols = array_keys($row);
+                // Drop unknown columns + empty values
+                $clean = [];
+                foreach ($row as $k => $v) {
+                    if (isset($tblCols[$k]) && trim((string)$v) !== '') $clean[$k] = $v;
+                }
+                if (!$clean) { $errors[] = ['row_index'=>$i,'error'=>'No mappable columns']; continue; }
+                $cols = array_keys($clean);
                 $place = implode(',', array_fill(0, count($cols), '?'));
                 $sql = "INSERT INTO `$table` (`" . implode('`,`', $cols) . "`) VALUES ($place)";
-                $db->prepare($sql)->execute(array_values($row));
+                $db->prepare($sql)->execute(array_values($clean));
                 $count++;
             } catch (\Throwable $e) {
                 $errors[] = ['row_index'=>$i, 'error'=>$e->getMessage()];
