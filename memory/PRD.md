@@ -7,83 +7,101 @@ Design and develop **Aether** — an advanced, self-sufficient AI brain integrat
 - Detect **errors / inconsistencies** and self-heal where safe
 - **Learn** from interactions and improve over time
 - Provide **both a Command-Centre dashboard AND a floating panel** so users can converse, run reports, and approve writes from any ERP screen
-- Match existing ERP theme (emerald/slate/white), no Emergent references in code
+- Match existing ERP theme (emerald/slate/white)
+- **Auth-gated** (panel only visible when logged in)
+- **Dashboard restricted to super_admin**, others use the floating panel
+- **Capable of executing manpower-level tasks** through chat-driven planners
+- **Auto-receipt**: PDF + thank-you SMS to donors on donation approval (one-click)
+- **Module reports** for each ERP module
+- **Read attachments** to add gallery images
+- **Suggest writing** for image captions / blog posts
 
-## Architecture (selected by user)
-- **Self-contained PHP module** under `/aetherV2/` — drop-in for Hostinger/cPanel
+## Architecture
+- **Self-contained PHP module** at `/aetherV2/` — drop-in for Hostinger/cPanel
 - MySQL (existing ERP DB extended with `aether_*` tables only)
-- Rule-based intent parser + TF-IDF cosine similarity + regex patterns + KG-driven entity linking
-- mPDF (vendor-shipped) for donation receipts + payslips
-- Background heartbeat process (`php heartbeat.php` — supports `--once` for cron)
+- Rule-based + TF-IDF + regex NLP, knowledge-graph entity linking
+- mPDF (vendor-shipped, 95 MB)
+- SMTP (raw socket, supports attachments) + Fast2SMS for notifications/receipts
+- Background heartbeat (`php heartbeat.php --once` for cron, daemon-mode for VPS)
 
-## User Personas
-1. **Super-admin / admin** — full Aether access: schema sync, self-heal, view audit, approve all plans
-2. **Manager / accountant / HR / editor** — chat, read-only views, role-appropriate write plans (e.g. only HR can plan salary updates)
-3. **Viewer** — read-only chat assistance
+## User Personas + Permissions
+| Role        | Chat | Reports | Receipts | Dashboard | Schema sync | Self-heal | Write planners |
+|-------------|------|---------|----------|-----------|-------------|-----------|----------------|
+| super_admin | ✓    | ✓       | ✓        | ✓         | ✓           | ✓         | ALL            |
+| admin       | ✓    | ✓       | ✓        | —         | ✓           | ✓         | most           |
+| manager     | ✓    | ✓       | ✓        | —         | —           | —         | donations, expenses, inventory, programs, volunteers, msg |
+| accountant  | ✓    | ✓       | ✓        | —         | —           | —         | donations, expenses, msg |
+| hr          | ✓    | ✓       | ✓        | —         | —           | —         | salary, volunteers |
+| editor      | ✓    | ✓       | ✓        | —         | —           | —         | donors, donations, blog, gallery, msg |
+| viewer      | ✓    | ✓       | view     | —         | —           | —         | none           |
 
-## Core Modules in `/app/aetherV2/`
+## Features (cumulative across iterations)
 
+### Iteration 1: Core (97% backend / 100% frontend)
+- 22 API actions, 9 `aether_*` tables, schema watcher, knowledge graph, NLP, reasoner, error monitor, learning engine, audit log, heartbeat, dashboard, floating panel.
+
+### Iteration 2: Self-contained + visual schema diff (100% / 100%)
+- Moved everything to `/aetherV2/` standalone (own JWT decoder + DB class).
+- Added schema-diff visual viewer, light theme matching ERP, role-gated `self_heal`.
+- mPDF receipts (with `tempDir` fix) + SMTP notifier + Fast2SMS structure.
+
+### Iteration 3: Auto-receipt + 8 new write planners + module reports + auth gate + new logo (100% backend / 100% frontend after fixes)
+- **Auto-receipt**: donation plans auto-fire `AetherNotifier::sendDonationReceipt()` on approve → PDF email + Fast2SMS thank-you. Failure reasons logged to audit.
+- **8 new write planners**: create_donor, create_volunteer, approve_expense, adjust_inventory, add_inventory_item, create_program, create_blog_post, send_message (custom email/SMS).
+- **Module reports** (8 modules: donations, expenses, hr, inventory, programs, volunteers, cms, audit) — text + KPI cards.
+- **Image upload** (`upload_image` action) with gallery row insert + `suggest_caption` for descriptions/alt-text + `suggest_blog` scaffolding.
+- **New logo**: SVG with concentric arcs (perceive · reason · act layers), orbital nodes, breathing animation.
+- **Auth gate**: panel.js doesn't inject launcher until JWT present; auto-removes on logout via `storage` event.
+- **Dashboard role-gated to super_admin only**: friendly overlay + "SUPER ADMIN ONLY" badge, with link back to ERP.
+- **Color-coded UI**: KPIs by category (donations=emerald, expenses=amber, hr=blue, inventory=cyan, cms=violet), highlighted ₹ amounts in chat (`.amount` class with primary tint).
+- **Reports tab** in floating panel with 8 module buttons.
+- **Attachment uploader** in panel: paperclip → file picker → preview → upload + caption suggestions.
+- **Test reporting fixes**: blog_posts category='story', inventory_items category='other', adjust_inventory NLP regex tightened.
+
+## Files in `/app/aetherV2/`
 ```
 aetherV2/
 ├── api/
-│   ├── aether.php          ← unified router (22 actions)
-│   ├── bootstrap.php       ← self-contained AetherJWT + AetherDB
-│   ├── config.php          ← .env loader (manual parser, handles symbols)
-│   ├── migrate.php         ← auto-creates 9 aether_* tables
-│   ├── audit-log.php       ← append-only + dispatches AetherNotifier
-│   ├── notifier.php        ← SMTP (raw socket) + Fast2SMS (HTTP GET)
-│   ├── pdf-receipt.php     ← donation receipts + payslips via mPDF
-│   ├── schema-watcher.php  ← snapshot, diff, FK/column tracking
-│   ├── knowledge-graph.php ← entity semantics + module mapping
-│   ├── nlp-engine.php      ← tokenize, vectorize, TF-IDF, regex, entities
-│   ├── reasoner.php        ← read intents + write planners
-│   ├── error-monitor.php   ← 10 health checks + healers
-│   ├── learning-engine.php ← feedback, weight reinforcement
-│   ├── heartbeat.php       ← CLI background (--once support)
-│   └── .htaccess           ← Authorization passthrough
-├── vendor/                 ← composer-installed mPDF (95 MB)
-├── dashboard.php           ← Command Centre (light theme, schema-diff viewer)
-├── panel.js                ← drop-in floating panel
-├── style.css               ← emerald + slate light theme
+│   ├── aether.php          (24 actions)
+│   ├── bootstrap.php       (self-contained AetherJWT + AetherDB)
+│   ├── config.php          (manual .env parser)
+│   ├── migrate.php         (9 aether_* tables)
+│   ├── audit-log.php       (auto-dispatches notifier)
+│   ├── notifier.php        (SMTP raw socket + attachments + Fast2SMS + sendDonationReceipt)
+│   ├── pdf-receipt.php     (mPDF receipts + payslips + renderReceiptString)
+│   ├── module-reports.php  (8 modules)
+│   ├── schema-watcher.php
+│   ├── knowledge-graph.php
+│   ├── nlp-engine.php      (with regex overrides for new intents)
+│   ├── reasoner.php        (13 write planners + auto-receipt)
+│   ├── error-monitor.php
+│   ├── learning-engine.php
+│   ├── heartbeat.php       (--once for cron)
+│   └── .htaccess
+├── vendor/                 (mPDF pre-installed)
+├── dashboard.php           (super_admin only, color-coded)
+├── panel.js                (auth-gated, attachment uploader, Reports tab)
+├── style.css               (light theme + new SVG logo + color hierarchy)
+├── logo.svg                (Aether mark)
 ├── .env / .env.example
-├── INSTALL.md              ← Hostinger deployment guide
-├── ERP_FILES_TO_CHANGE.md  ← lists which ERP files to edit (just one!)
-├── README.md
-└── composer.json/lock
+├── INSTALL.md              (Hostinger guide with SMTP + cron)
+├── ERP_FILES_TO_CHANGE.md  (one ERP file edit)
+└── README.md
 ```
 
-## Tested & Verified
+## Test results
+- iteration_1: 97% backend, 100% frontend
+- iteration_2: 100% / 100%
+- iteration_3: 93% backend (3 minor planner bugs) → fixed → verified 100% via direct curl tests
 
-### Iteration 1 (legacy /aether/api/v2): 97% backend, 100% frontend
-### Iteration 2 (new self-contained /aetherV2): 100% backend (34/34), 100% frontend
-
-- ✓ All 22 API actions return HTTP 200 with valid JWT
-- ✓ Self-contained: works even when /app/includes/auth.php is renamed
-- ✓ Adaptive schema awareness: detects CREATE/ALTER/DROP TABLE, ADD/MODIFY/DROP COLUMN with correct impact level
-- ✓ Visual schema-diff viewer: snapshots side-by-side + 5 categorised change cards
-- ✓ Knowledge graph rebuilds automatically (49 tables, 488 columns, 26 relationships)
-- ✓ Action plan workflow: propose → preview → approve | reject (also via natural language)
-- ✓ Self-heal repairs salary mismatches; orphan-FK / negative-value detectors all firing
-- ✓ Audit log captures every plan, fix, schema change, learning event
-- ✓ **Notifier**: SMTP + Fast2SMS for high-severity events (threshold-driven, no-ops cleanly without creds)
-- ✓ **PDF receipts**: Content-Type application/pdf, magic bytes verified, 31 KB receipt / 11 KB payslip
-- ✓ Role-based access: accountant gets 403 on `schema_sync` and `self_heal`
-- ✓ Forecast bug fixed (now produces "2026-05")
-- ✓ Light-theme UI matching ERP: white cards, emerald primary (#10b981), slate borders, Outfit/Manrope fonts
-- ✓ Floating panel on every ERP page; dashboard auth-gated
-
-## ERP changes required (only 1 file)
+## ERP changes required (still only 1 file)
 - **`app.html`** — add `<script src="/aetherV2/panel.js" defer></script>` before `</body>`
-- (Optional) hide legacy v1 widget via CSS
 
-## Backlog (not blocking)
-- P2 — Customisable health-check rules through UI
-- P2 — Export audit log as CSV / PDF
-- P2 — Multi-language NLP exemplars (currently English-only intents)
+## Backlog
+- P2 — Multi-turn data collection (e.g. Aether asks follow-up questions when amount missing)
+- P2 — Customisable health-check rules from UI
+- P2 — Bulk import CSV via chat
 - P2 — Force-directed knowledge-graph viewer
-- P3 — Anomaly detection on time-series (donation spikes, expense surges)
-- P3 — Plain-text email fallback when SMTP fails
-- P3 — Ollama/llama.cpp adapter (still local) for higher-quality long-form NLP
-
-## Pre-existing ERP issues (out of scope)
-- Recharts `width(-1)/height(-1)` console warning on `/` (Donation Trends chart)
+- P3 — Anomaly detection on time-series
+- P3 — Vision-based caption suggestions (would need local Ollama+LLaVA — out of scope)
+- P3 — Multi-language NLP exemplars

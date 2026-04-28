@@ -138,12 +138,12 @@
   // Color-code KPI by label keyword
   function kpiCategory(label){
     const l = label.toLowerCase();
-    if (l.includes('donat') || l.includes('contributor') || l.includes('gift')) return 'donations';
+    if (l.includes('donat') || l.includes('contributor') || l.includes('gift') || l.includes('donor')) return 'donations';
     if (l.includes('expense') || l.includes('spend')) return 'expenses';
     if (l.includes('employ') || l.includes('staff') || l.includes('payroll') || l.includes('volunteer')) return 'hr';
     if (l.includes('inventor') || l.includes('stock') || l.includes('item')) return 'inventory';
     if (l.includes('blog') || l.includes('gallery') || l.includes('content') || l.includes('project') || l.includes('program')) return 'cms';
-    return '';
+    return 'donations';
   }
 
   function renderKpis(kpis){

@@ -495,7 +495,7 @@ class AetherReasoner
         $unit = 'pcs';
         if (preg_match('/\b(unit|in)\s+([a-z]+)/i', $message, $m)) $unit = $m[2];
         $plan = ['kind'=>'insert','table'=>'inventory_items',
-                 'fields'=>['item_name'=>$name,'quantity'=>(int)$qty,'unit'=>$unit,'category'=>'general']];
+                 'fields'=>['item_name'=>$name,'quantity'=>(int)$qty,'unit'=>$unit,'category'=>'other']];
         $plan = $this->savePlan('add_inventory_item', $plan,
             "Plan: add new item **$name** (qty $qty $unit) to inventory."
         );
@@ -529,7 +529,7 @@ class AetherReasoner
         $slug = preg_replace('/[^a-z0-9-]+/', '-', strtolower($title));
         $plan = ['kind'=>'insert','table'=>'blog_posts',
                  'fields'=>['title'=>$title,'slug'=>$slug,'excerpt'=>$excerpt,'content'=>$body,
-                            'category'=>'General','author_name'=>$this->user['full_name'] ?? 'Aether',
+                            'category'=>'story','author_name'=>$this->user['full_name'] ?? 'Aether',
                             'is_published'=>0,'is_featured'=>0]];
         $plan = $this->savePlan('create_blog_post', $plan,
             "Plan: draft blog post **\"$title\"** (~" . str_word_count($body) . " words, saved as draft)."

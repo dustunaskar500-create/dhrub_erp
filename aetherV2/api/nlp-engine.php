@@ -202,6 +202,29 @@ class AetherNLP
         if (preg_match('/\b(forecast|predict|projection|trend)\b/', $m)) return 'forecast';
         if (preg_match('/\b(describe|schema of|fields in|columns of|structure of)\b/', $m)) return 'schema_info';
         if (preg_match('/\b(audit|recent activity|what did you do|aether log)\b/', $m)) return 'audit_recent';
+        // Module reports
+        if (preg_match('/\b(report|analyse|analyze|breakdown|monthly|quarterly)\b/', $m) && preg_match('/\b(donation|expense|hr|inventory|payroll|program|volunteer|cms|blog|gallery)/', $m)) return 'module_report';
+        // Add inventory item must beat adjust_inventory if "add new item"
+        if (preg_match('/\b(add|create)\s+(new\s+)?(inventory\s+)?item\b/', $m)) return 'add_inventory_item';
+        // Adjust inventory must beat list_inventory
+        if (preg_match('/\b(adjust|increase|decrease|restock|consume|remove|reduce)\b.*\binventory\b/', $m)) return 'adjust_inventory';
+        if (preg_match('/\b(adjust|increase|decrease|restock|consume|reduce)\b.*\bquantity\b/', $m)) return 'adjust_inventory';
+        if (preg_match('/\binventory\b.*\bby\s*[+-]?\d+/', $m)) return 'adjust_inventory';
+        // Send custom message
+        if (preg_match('/\b(send|email|sms|notify|message)\b.*(@|\+91|\b[6-9]\d{9}\b)/', $m)) return 'send_message';
+        // Caption / blog
+        if (preg_match('/\b(caption|alt[- ]?text|describe.*image|describe.*photo)\b/', $m)) return 'suggest_caption';
+        if (preg_match('/\b(draft|write|suggest).*(blog|article|post)\b/', $m)) return 'suggest_blog';
+        // Approve expense
+        if (preg_match('/\bapprove\b.*\bexpense\b/', $m)) return 'approve_expense';
+        // Create donor
+        if (preg_match('/\b(add|create|register|onboard)\s+(a\s+)?donor\b/', $m)) return 'create_donor';
+        // Create volunteer
+        if (preg_match('/\b(register|add|onboard|create)\s+(a\s+)?volunteer\b/', $m)) return 'create_volunteer';
+        // Create program
+        if (preg_match('/\b(create|add|launch|start)\s+(a\s+)?program\b/', $m)) return 'create_program';
+        // Create blog post
+        if (preg_match('/\b(create|publish|add|new)\s+blog\s+post\b/', $m)) return 'create_blog_post';
         return null;
     }
 
