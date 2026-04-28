@@ -1,91 +1,100 @@
 # Aether v2 — Installation on Hostinger (or any cPanel / shared PHP host)
 
-> **TL;DR** — copy the `aetherV2/` folder to `public_html/aetherV2/`, edit `.env`, add **one line** to your ERP's HTML, and you're done.
+> **TL;DR** — copy `aetherV2/` into your web root, fill in `.env` (especially **JWT_SECRET** + **SMTP**), add **one line** to your ERP HTML, and Aether is live.
 
 ---
 
-## 1. What's inside this folder
+## 📦 1. What's inside this folder
 
 ```
 aetherV2/
-├── api/                    # all PHP API code (self-contained)
-│   ├── aether.php          ◀ unified router (POST endpoint)
-│   ├── bootstrap.php       ◀ JWT decoder + DB connection
-│   ├── config.php          ◀ reads .env
+├── api/
+│   ├── aether.php          ◀ unified router (24 actions)
+│   ├── bootstrap.php       ◀ self-contained AetherJWT + AetherDB
+│   ├── config.php          ◀ reads .env (manual parser, handles symbols)
 │   ├── migrate.php         ◀ auto-creates aether_* tables (idempotent)
-│   ├── audit-log.php
-│   ├── schema-watcher.php
-│   ├── knowledge-graph.php
-│   ├── nlp-engine.php
-│   ├── reasoner.php
-│   ├── error-monitor.php
-│   ├── learning-engine.php
-│   ├── notifier.php        ◀ SMTP + Fast2SMS for high-severity alerts
+│   ├── audit-log.php       ◀ append-only + auto-dispatches notifications
+│   ├── notifier.php        ◀ SMTP + Fast2SMS dispatcher
 │   ├── pdf-receipt.php     ◀ donation receipts + payslips (mPDF)
+│   ├── module-reports.php  ◀ on-demand analytical reports per module
+│   ├── schema-watcher.php  ◀ snapshot, diff, FK + column tracking
+│   ├── knowledge-graph.php ◀ entity semantics + module mapping
+│   ├── nlp-engine.php      ◀ tokenize, vectorize, TF-IDF, regex, entities
+│   ├── reasoner.php        ◀ read intents + 13 write planners
+│   ├── error-monitor.php   ◀ 10 health checks + auto-healers
+│   ├── learning-engine.php ◀ feedback, weight reinforcement
 │   ├── heartbeat.php       ◀ background CLI worker (cron-friendly)
-│   └── .htaccess           ◀ passes Authorization header to PHP
-├── vendor/                 # composer dependencies (mPDF) — pre-shipped
-├── dashboard.php           ◀ Command Centre UI
-├── panel.js                ◀ Floating panel widget (drop into ERP HTML)
-├── style.css               ◀ light-theme stylesheet (matches ERP)
-├── .env.example            ◀ template — copy to .env
-└── INSTALL.md              ◀ this file
+│   └── .htaccess           ◀ Authorization passthrough
+├── vendor/                 ◀ composer-installed mPDF (95 MB, pre-shipped)
+├── dashboard.php           ◀ Command Centre (super_admin only)
+├── panel.js                ◀ floating panel (auto-hidden when logged out)
+├── style.css               ◀ light theme matching ERP
+├── logo.svg                ◀ Aether mark
+├── .env.example            ◀ template
+├── INSTALL.md              ◀ this file
+├── ERP_FILES_TO_CHANGE.md  ◀ ERP edits required (just one!)
+└── README.md
 ```
-
-The folder is **fully self-contained** — no dependency on your ERP's `includes/` files.
 
 ---
 
-## 2. Upload (Hostinger steps)
+## 🚀 2. Upload (Hostinger steps)
 
-1. In Hostinger File Manager, navigate to your ERP's web root: `public_html/`.
+1. In Hostinger File Manager, navigate to your ERP's web root (`public_html/`).
 2. Upload the entire `aetherV2/` folder there. Final path: `public_html/aetherV2/`.
 3. Permissions:
-   - `aetherV2/` and subfolders: `755`
-   - All `.php`, `.js`, `.css`, `.htaccess`: `644`
-   - **`aetherV2/.env`: `600`** (so only the web user can read it)
+   - `aetherV2/` and subfolders: **`755`**
+   - All `.php`, `.js`, `.css`, `.htaccess`: **`644`**
+   - **`aetherV2/.env`: `600`** (only the web user can read it)
 
-## 3. Configure environment
+---
 
-Rename `.env.example` → `.env` and fill in the values:
+## 🔐 3. Configure `.env` (the only file you must edit)
+
+Rename `.env.example` → `.env`. Fill in the values below. Comments next to each show where to find / how to use them.
 
 ```ini
+# ── Database (must match your ERP's DB) ────────────────────────────────
 DB_HOST=localhost
-DB_NAME=u135884328_dhrub_erp           # your existing ERP DB
+DB_NAME=u135884328_dhrub_erp        # your existing ERP database
 DB_USER=u135884328_admin_erp
-DB_PASS=your_actual_password
+DB_PASS=<your-actual-mysql-password>
 
-# CRITICAL — must match your ERP's JWT_SECRET so existing user tokens work.
-# Look in /public_html/config/database.php (or wherever your ERP defines JWT_SECRET).
+# ── JWT — CRITICAL ─────────────────────────────────────────────────────
+# Must EXACTLY match the JWT_SECRET your ERP uses to sign tokens.
+# Find it in /public_html/config/database.php (look for: define('JWT_SECRET', '...'))
 JWT_SECRET=dhrub-foundation-erp-jwt-secret-2024
 
-# Notifications (optional — leave blank to disable)
-AETHER_NOTIFY_THRESHOLD=high                # info|low|medium|high|critical
-AETHER_NOTIFY_EMAIL=admin@dhrubfoundation.org
-AETHER_NOTIFY_SMS=919876543210              # comma-sep, country code only
+# ── Notifications — high-severity audit alerts ─────────────────────────
+AETHER_NOTIFY_THRESHOLD=high                 # info|low|medium|high|critical
+AETHER_NOTIFY_EMAIL=admin@dhrubfoundation.org,founder@dhrubfoundation.org
+AETHER_NOTIFY_SMS=919876543210,917000000000  # comma-sep, country code only
 
-# SMTP (used for high-severity alert emails)
-SMTP_HOST=smtp.hostinger.com
-SMTP_PORT=587
-SMTP_USERNAME=alerts@dhrubfoundation.org
-SMTP_PASSWORD=your_smtp_password
+# ── SMTP (email — used for both alerts AND donor thank-you receipts) ───
+SMTP_HOST=smtp.hostinger.com                 # Hostinger: smtp.hostinger.com
+SMTP_PORT=587                                # 587 (STARTTLS) or 465 (SSL)
+SMTP_USERNAME=alerts@dhrubfoundation.org     # any mailbox you own on the domain
+SMTP_PASSWORD=<your-mailbox-password>
 SMTP_FROM_NAME=Aether (Dhrub Foundation)
 SMTP_FROM_EMAIL=alerts@dhrubfoundation.org
 
-# Fast2SMS — Get key from https://www.fast2sms.com/dashboard/dev-api
-FAST2SMS_API_KEY=
+# ── Fast2SMS (SMS — for donor thank-you SMS) ───────────────────────────
+# Get key from https://www.fast2sms.com/dashboard/dev-api → "API Key"
+FAST2SMS_API_KEY=<your-fast2sms-key>
 FAST2SMS_SENDER=AETHR
 
 TIMEZONE=Asia/Kolkata
 ```
 
-> **Heads-up** — if `JWT_SECRET` doesn't match your ERP's, every Aether request will be rejected with 401. The default value above matches the ERP we received; check `/config/database.php` in your ERP to confirm.
+> **⚠️ Most common gotcha**: if `JWT_SECRET` doesn't match your ERP's, every Aether request returns 401 "Authentication required". Always copy-paste the exact value from `config/database.php`.
+
+> **💡 Hostinger-specific tip**: For SMTP you can use any email address you've created in **hPanel → Emails → Email Accounts**. The mailbox password = your SMTP password. Host is always `smtp.hostinger.com`, port `587` for STARTTLS or `465` for SSL.
 
 ---
 
-## 4. Wire it into your ERP — **only one file changes**
+## 🎯 4. Wire it into your ERP — **only one file changes**
 
-Open the HTML file your ERP serves (the same one that loads your React/Vue/static front-end). For Dhrub ERP this is **`/public_html/app.html`**. Find the closing `</body>` tag and add **one line** above it:
+Open the HTML file your ERP serves (the same one that loads your React/Vue/static front-end). For Dhrub ERP this is **`/public_html/app.html`**. Find the closing `</body>` tag and add one line above it:
 
 ```html
     <!-- ── Aether v2 — autonomous brain ── -->
@@ -93,11 +102,11 @@ Open the HTML file your ERP serves (the same one that loads your React/Vue/stati
 </body>
 ```
 
-**That's the only ERP file that needs to change.** No PHP edits, no API changes, no DB migrations to run by hand — Aether's first request to `/aetherV2/api/aether.php` triggers the migration automatically.
+**That's the only ERP file that needs to change.** The script auto-hides the launcher when nobody is logged in (security gate is built in), and auto-creates the database tables on its first request.
 
 ### Optional — hide the legacy v1 widget
 
-If your ERP still has the old Aether v1 floating button, add this to the same file's `<style>` block:
+If your ERP still has the old Aether v1 floating button:
 
 ```css
 #aether-fab, #aether-window { display: none !important; }
@@ -105,94 +114,23 @@ If your ERP still has the old Aether v1 floating button, add this to the same fi
 
 ---
 
-## 5. Background heartbeat (recommended)
+## ⏱ 5. Set up the heartbeat (background scanner)
 
-For continuous schema-watching + health-checks, set up a **cron job** in Hostinger's hPanel → Advanced → Cron Jobs:
+Aether re-syncs schema + runs health checks every time someone uses it, but for **continuous adaptive monitoring** you want the heartbeat running in the background.
 
-| Schedule          | Command                                                   |
-| ----------------- | --------------------------------------------------------- |
-| Every 2 minutes   | `php /home/uXXXXXX/public_html/aetherV2/api/heartbeat.php --once` |
+### Option A — Hostinger Cron (easiest)
 
-> The heartbeat script supports an optional `--once` argument (single-run for cron). If you can run it as a long-lived process (VPS), use the supervisord-style config at the bottom of this file.
+In Hostinger hPanel → **Advanced → Cron Jobs**, add:
 
-If you can't run cron, that's fine — Aether also re-syncs whenever a user opens the dashboard, opens the panel, or sends a chat message.
+| Schedule              | Command                                                                          |
+| --------------------- | -------------------------------------------------------------------------------- |
+| `*/2 * * * *`         | `php /home/uXXXXXXXX/public_html/aetherV2/api/heartbeat.php --once`              |
 
----
+Replace `uXXXXXXXX` with your actual Hostinger user ID (visible in hPanel → File Manager URL).
 
-## 6. Login & first use
+The `--once` flag tells Aether to do a single pass and exit — perfect for cron.
 
-1. Visit your ERP and log in normally — JWT is stored in browser `localStorage`.
-2. Open any ERP page → the green Aether launcher appears bottom-right.
-3. Click it → the floating panel slides in. Try:
-   - "show top donors"
-   - "low stock"
-   - "forecast donations"
-   - "record donation of ₹5000 from 'Jane Doe'"  ← creates an action plan that needs your approval
-4. Or go to **`yourdomain.com/aetherV2/dashboard.php`** for the full Command Centre.
-
----
-
-## 7. Generating PDF receipts / payslips
-
-Aether ships with mPDF pre-installed in `vendor/`. Once a donation exists, hit:
-
-```
-GET  /aetherV2/api/aether.php?action=download_receipt&donation_id=42
-GET  /aetherV2/api/aether.php?action=download_payslip&payroll_id=10
-```
-
-(both require a Bearer token). The PDF is rendered server-side from your live ERP data with your organization details from the `settings` table.
-
----
-
-## 8. Notifications
-
-When a high-severity audit event fires (e.g. data integrity failure, plan execution failure, missing admin user), Aether sends:
-
-- **Email** — beautifully formatted HTML alert to every address in `AETHER_NOTIFY_EMAIL`
-- **SMS** — short summary via Fast2SMS to every number in `AETHER_NOTIFY_SMS`
-
-Tune the threshold via `AETHER_NOTIFY_THRESHOLD` (default `high`). Set to `critical` to receive only the most severe events; `medium` for more verbosity.
-
----
-
-## 9. Database tables Aether creates (auto-migration)
-
-All start with `aether_` prefix and are created on first request:
-
-| Table                       | Purpose                                |
-| --------------------------- | -------------------------------------- |
-| `aether_schema_snapshots`   | Historical schema fingerprints         |
-| `aether_schema_changes`     | Detected diffs between snapshots       |
-| `aether_knowledge`          | Internal model of every ERP entity     |
-| `aether_health_checks`      | Registered health-check definitions    |
-| `aether_issues`             | Open / healed / closed issues          |
-| `aether_audit_log`          | Append-only event log                  |
-| `aether_learning`           | Per-interaction intent + outcome       |
-| `aether_intent_weights`     | Adaptive token-intent weights          |
-| `aether_action_plans`       | Proposed write actions awaiting approval |
-| `aether_memory`             | Conversation history (existed already) |
-
-**Aether never modifies your existing ERP tables** — read access only, plus controlled writes via approved action plans.
-
----
-
-## 10. Troubleshooting
-
-| Symptom                                            | Fix                                                                                |
-| -------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| `401 Authentication required` on every call       | `JWT_SECRET` in `.env` doesn't match the ERP's. Check `/config/database.php`.    |
-| `500 Aether DB connection failed`                  | Wrong `DB_*` credentials in `.env`, or the DB user lacks privileges on the ERP DB. |
-| Floating panel doesn't show                        | `<script src="/aetherV2/panel.js">` not added to your HTML, or path is wrong.     |
-| Chat replies "Empty message"                       | Browser ad-blocker stripped the request body — add `aetherV2/` to the allow-list. |
-| Schema sync says "Admin only"                      | Only `super_admin` / `admin` roles can sync schema. Log in as one.                 |
-| Heartbeat not running                              | Check the cron job, or run manually: `php aetherV2/api/heartbeat.php`.            |
-
----
-
-## 11. Long-running heartbeat (VPS / dedicated server)
-
-If you have shell access and want a real long-lived process:
+### Option B — VPS / dedicated server (long-running daemon)
 
 ```ini
 # /etc/supervisor/conf.d/aether-heartbeat.conf
@@ -212,4 +150,75 @@ sudo supervisorctl reread && sudo supervisorctl update
 
 ---
 
-That's it. Aether is now embedded in your ERP, fully self-hosted, learning from every interaction, and ready to be your second pair of eyes.
+## 🧪 6. First-use verification
+
+1. Visit your ERP and **log in** normally.
+2. The **green Aether launcher** should appear bottom-right of every ERP page.
+3. **Sign out** → the launcher disappears (auth gate).
+4. Sign back in → launcher reappears. Click it → panel opens. Try:
+   - "show top donors"
+   - "report on expenses this quarter"
+   - "low stock"
+   - "record donation of ₹5000 from \"Test Donor\" test@x.com 9876543210" → action plan card
+5. As **super_admin**, also visit `yourdomain.com/aetherV2/dashboard.php` → full Command Centre.
+6. As any other role, visit the same URL → friendly **"Super-admin access only"** overlay (panel still works on every page).
+
+### Test the auto-receipt flow
+
+1. As any plan-capable role, ask Aether: `record donation of ₹5000 from "Receipt Test" testdonor@yourdomain.com 9876543210`
+2. Click **Approve** in the plan card.
+3. The donor should receive:
+   - 📧 **PDF receipt as email attachment** (rendered with mPDF, your org details from `settings`)
+   - 📱 **Fast2SMS thank-you message** with the receipt code
+4. Check `/aetherV2/api/aether.php?action=audit` for two events: `plan_executed` + `receipt_dispatched`.
+
+If email/SMS shows `email=no, sms=no`, check the audit `receipt_dispatched` event's payload — Aether records exactly which credential failed (e.g. `"FAST2SMS_API_KEY not configured"`, `"email send failed (check SMTP_*)"`).
+
+---
+
+## 🛂 7. Role permissions inside Aether
+
+| Role        | Chat | Reports | Receipts/PDFs | Dashboard | Schema sync | Self-heal | Write actions      |
+|-------------|------|---------|---------------|-----------|-------------|-----------|--------------------|
+| super_admin | ✓    | ✓       | ✓             | ✓         | ✓           | ✓         | ALL                |
+| admin       | ✓    | ✓       | ✓             | ✗         | ✓           | ✓         | most               |
+| manager     | ✓    | ✓       | ✓             | ✗         | ✗           | ✗         | donations, expenses, inventory, programs, volunteers, custom messages |
+| accountant  | ✓    | ✓       | ✓             | ✗         | ✗           | ✗         | donations, expenses, custom messages |
+| hr          | ✓    | ✓       | ✓             | ✗         | ✗           | ✗         | salary updates, volunteers |
+| editor      | ✓    | ✓       | ✓             | ✗         | ✗           | ✗         | donors, donations, blog posts, gallery, custom messages |
+| viewer      | ✓    | ✓       | ✓ (read)      | ✗         | ✗           | ✗         | none               |
+
+---
+
+## 📊 8. What Aether can do for you (quick reference)
+
+**Conversational reports** — "report on donations this quarter" / "expense breakdown" / "HR report" / "inventory health"
+**Recording donations** — "record ₹5000 from \"Jane Doe\" jane@x.com 9876543210" → plan with auto-receipt
+**Logging expenses** — "log expense ₹2500 for stationery"
+**HR** — "update salary of \"Anita\" to ₹45000" / "register volunteer \"Ravi Kumar\""
+**Inventory** — "adjust inventory of \"Notebooks\" by +50" / "add inventory item \"Pens\" qty 100"
+**Content** — "draft blog about \"our scholarship drive\"" / drag image into chat → caption suggestions + auto-upload
+**Communications** — "send email to ravi@x.com saying \"thank you for your support\""
+**Operations** — "approve expense #42" / "create program \"Winter Outreach\" budget ₹50000"
+**System** — "health" / "self-heal" / "describe employees" / "recent audit"
+
+Every write action is **proposed as a plan** with a preview — you click Approve once, Aether executes and (for donations) auto-emails the donor + sends a thank-you SMS.
+
+---
+
+## 🔧 9. Troubleshooting
+
+| Symptom                                            | Fix                                                                                |
+| -------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| Launcher doesn't appear at all                     | Not logged in (auth gate working). Sign in normally to your ERP.                  |
+| `401 Authentication required` in console          | `JWT_SECRET` in `.env` doesn't match the ERP's. Check `config/database.php`.    |
+| `500 Aether DB connection failed`                  | Wrong `DB_*` credentials in `.env`. Test with: `mysql -u<user> -p<DB_NAME>`.   |
+| Receipt says `email send failed (check SMTP_*)`    | SMTP_HOST/PORT/USERNAME/PASSWORD wrong. Hostinger: try port 465 + SSL.            |
+| Receipt says `FAST2SMS_API_KEY not configured`    | Add the key from https://www.fast2sms.com/dashboard/dev-api                       |
+| `403 Admin only` on `schema_sync` / `self_heal`   | Only `super_admin` / `admin` can do these. Log in with one or use chat instead.  |
+| Heartbeat not running                              | Check Hostinger cron job logs in hPanel.                                           |
+| Panel shows but Reports tab fails                  | The `aether_*` tables aren't created — load any chat first to trigger migration.  |
+
+---
+
+That's it. Aether is live, learning from every interaction, ready to be your second pair of hands.

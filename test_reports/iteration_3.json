@@ -1,0 +1,48 @@
+{
+  "summary": "Aether v2 iteration_3 — comprehensive backend + frontend testing of NEW features (auto-receipt, 8 write planners, module_report×8, upload_image, suggest_caption, role-gated dashboard, auth-gated launcher, Reports tab, attachment uploader, money highlight). Backend: 43/46 pytest passes (93%). All 22 router actions return 200. All 8 module_reports return text+cards. upload_image creates file in /app/uploads/aether/ AND row in gallery. suggest_caption returns multi-option reply. AUTO-RECEIPT END-TO-END VERIFIED: chat→plan→approve_plan returns receipt {email:false, sms:false, reasons:['email send failed (check SMTP_*)','FAST2SMS_API_KEY not configured']} AND aether_audit_log shows BOTH event_type='plan_executed' AND 'receipt_dispatched' (severity=info) for donation #23. Role gate retained — accountant gets 403 on self_heal & schema_sync, 200 on chat. Frontend: launcher correctly HIDDEN without token, REAPPEARS after login as accountant. New SVG logo (concentric arcs+core+breathing) visible in panel header & dashboard role-gate overlay. All 4 tabs (Chat/Reports/Health/Plans) present with testids. Reports tab → 8 module buttons (Donations/Expenses/HR/Inventory/Programs/Volunteers/CMS/Audit) → click Donations renders KPI cards + ₹ amounts. Attach button data-testid='aether-v2-attach' present. Plan inline approve flow: approve donation plan → '✓ Executed successfully' followed by 'Receipt: email ✗ · sms ✗' + reasons. .amount span renders ₹5,000.00 (17 spans on 'show top donors' reply). Role gate on /aetherV2/dashboard.php for accountant: 'Super-admin access only' overlay with 'SUPER ADMIN ONLY' badge, #app hidden, overlay-login-link testid present.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "approve_plan (create_blog_post)", "issue": "DB error 'Data truncated for column category'. reasoner.php line 532 sets blog_posts.category='General' but column is enum('news','update','event','announcement','story'). Plan creation succeeds but execution fails on insert.", "priority": "HIGH"},
+      {"endpoint": "approve_plan (add_inventory_item)", "issue": "DB error 'Data truncated for column category'. reasoner.php line 498 sets inventory_items.category='general' but column is enum('food','clothing','medical','educational','household','equipment','other'). Should default to 'other'.", "priority": "HIGH"}
+    ],
+    "minor": [
+      {"endpoint": "chat (adjust_inventory planner)", "issue": "Message 'adjust inventory of \"Notebooks\" by +50' is mis-classified as intent='list_inventory' (mode='answer') instead of routing to planAdjustInventory. NLP exemplars in nlp-engine.php need an 'adjust|update|increase|decrease inventory of X by N' pattern."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Dashboard KPIs", "issues": ["KPI tints applied via class names (donations/expenses/hr/inventory/cms) but kpi-donors has empty variant class (no tint). Computed bg is rgba(0,0,0,0) on most KPIs — accent likely via border/icon color, not full background. Acceptable but inconsistent."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_aetherV2_iter3.py",
+    "/app/test_reports/pytest/aetherV2_iter3.xml"
+  ],
+  "action_items": [
+    "Fix /app/aetherV2/api/reasoner.php line 532: change blog_posts category from 'General' to a valid enum value like 'update' or 'story' (or read from plan input).",
+    "Fix /app/aetherV2/api/reasoner.php line 498: change inventory_items category from 'general' to 'other' (valid enum value).",
+    "Add NLP exemplars for 'adjust inventory of X by ±N' pattern in /app/aetherV2/api/nlp-engine.php so it routes to adjust_inventory planner instead of list_inventory.",
+    "(Minor) Add a category color variant class to kpi-donors so tint is consistent with other KPIs."
+  ],
+  "critical_code_review_comments": [
+    "Auto-receipt feature is correctly implemented: applyPlan in reasoner.php fires AetherNotifier::sendDonationReceipt for plans with auto_receipt:true. Both email and SMS dispatch are ATTEMPTED, both fail gracefully (no SMTP/Fast2SMS credentials), and both failure reasons are written to aether_audit_log as event_type='receipt_dispatched' (severity=info). This matches the PRD exactly.",
+    "module_report covers all 8 modules with non-empty text + cards array. Reports tab in panel.js wires button clicks to module_report API and renders cards inline.",
+    "upload_image persists to /app/uploads/aether/ and inserts gallery row with title/image_url/description/category. suggest_caption returns multi-option reply with alt-text suggestions.",
+    "Auth gate on launcher: panel.js correctly checks localStorage for token before injecting launcher; clearing storage hides launcher; login restores it. Role gate on dashboard.php uses overlay with 'SUPER ADMIN ONLY' badge and hides #app for non-admins.",
+    "Three planner bugs (blog category, inventory category, adjust_inventory NLP) are isolated and don't regress existing features. All other 8 write planners work end-to-end (create_donor, create_volunteer, approve_expense, add_inventory_item plan stage, create_program, create_blog_post plan stage, send_message all return mode='plan' with persisted aether_action_plans rows).",
+    "Suggestion: Plans for create_blog_post and add_inventory_item should validate category against enum BEFORE insert and pick a safe default — currently the SQLSTATE error reaches the user."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_aetherV2_iter3.py (new — 46 tests covering all v2 iter3 features)"
+  ],
+  "success_rate": {"backend": "93% (43/46 passed — 3 backend bugs in planner enum/NLP)", "frontend": "100% (all required v2 UI flows verified)"},
+  "test_credentials": "super_admin: sbrata9843@gmail.com/admin123, accountant: accountant@dhrubfoundation.org/admin123 — both work.",
+  "seed_data_creation": "Created during test (cleaned up): TEST iter3 image (gallery), TEST_iter3_*.png in /app/uploads/aether/, TEST Donor iter3, TEST PanelTest iter3 (donor+donation #23), TEST Auto Receipt iter3 (donor+donation), aether_action_plans rows for 8 planners. Cleanup SQL ran successfully — 0 donors_left.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Test file: /app/backend/tests/test_aetherV2_iter3.py (46 tests, ~8s). Audit events use field 'event_type' (NOT 'action'). Auto-receipt audit signature: event_type='receipt_dispatched' severity='info' summary='Donation #N thank-you sent (email=no, sms=no)' payload_json={email,sms,reasons}. Plan id is at j['plan']['id']. approve_plan returns {ok:true, result:{inserted_id, table, receipt:{email,sms,reasons}}}. Frontend testids confirmed: aether-v2-launcher, aether-v2-tab-{chat|reports|health|plans}, aether-v2-input, aether-v2-send, aether-v2-attach, kpi-*, back-to-erp, overlay-login-link. Inventory/blog category enums: inventory_items=('food','clothing','medical','educational','household','equipment','other'), blog_posts=('news','update','event','announcement','story').",
+  "rca_of_issues": "1) blog_posts/inventory_items 'category truncated' — planner hardcodes 'General'/'general' which are NOT in either enum. Quick fix: change line 532 to 'update' (blog) and line 498 to 'other' (inventory). 2) adjust_inventory NLP miss — message contains 'inventory' which matches list_inventory exemplar with higher score; need stronger 'adjust|update by ±' pattern in nlp-engine.php exemplars."
+}

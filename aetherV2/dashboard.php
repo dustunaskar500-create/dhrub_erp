@@ -1,7 +1,8 @@
 <?php
 /**
- * Aether v2 — Command Centre
- * Light theme matching the Dhrub Foundation ERP (emerald primary, slate borders, Outfit/Manrope).
+ * Aether v2 — Command Centre (super_admin only)
+ * The dashboard is restricted server-side to super_admin. Other roles see a
+ * friendly "use the chat panel instead" message.
  */
 ?><!doctype html>
 <html lang="en">
@@ -13,16 +14,19 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Manrope:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-<link rel="icon" type="image/png" href="/logo.png">
+<link rel="icon" type="image/svg+xml" href="logo.svg">
 <link rel="stylesheet" href="style.css">
 </head>
 <body class="aev-light">
+
+<!-- ── Auth + role overlay ── -->
 <div class="aev-overlay" id="auth-overlay">
   <div class="aev-auth-card">
     <div class="aev-mark-lg"></div>
-    <h3>Sign in to access Aether</h3>
-    <p>Aether's Command Centre is restricted. Sign in to your ERP first to access live system data.</p>
+    <h3 id="overlay-title">Sign in to access Aether</h3>
+    <p id="overlay-msg">Aether's Command Centre is restricted. Sign in to your ERP first to access live system data.</p>
     <a class="aev-btn primary" href="/" data-testid="overlay-login-link"><i class="fa-solid fa-arrow-left"></i> Go to ERP login</a>
+    <div id="overlay-role-tag" class="role-required" style="display:none">SUPER ADMIN ONLY</div>
   </div>
 </div>
 
@@ -33,14 +37,17 @@
       <div class="aev-mark"></div>
       <div>
         <h1>Aether <span>·</span> Command Centre</h1>
-        <div class="aev-subtitle">Autonomous ERP brain · zero external calls · live</div>
+        <div class="aev-subtitle">
+          <span>Autonomous · local · adaptive</span>
+          <span class="role-tag" id="user-role-tag">…</span>
+        </div>
       </div>
     </div>
-    <span class="aev-pill live" id="live-pill"><span class="dot"></span> LIVE</span>
+    <span class="aev-pill" id="live-pill"><span class="dot"></span> LIVE</span>
     <div class="aev-actions">
-      <button class="aev-btn" id="btn-refresh" data-testid="btn-refresh"><i class="fa-solid fa-rotate"></i> Refresh</button>
-      <button class="aev-btn" id="btn-sync" data-testid="btn-sync"><i class="fa-solid fa-diagram-project"></i> Sync schema</button>
-      <button class="aev-btn primary" id="btn-heal" data-testid="btn-heal"><i class="fa-solid fa-wand-magic-sparkles"></i> Self-heal</button>
+      <button class="aev-btn" id="btn-refresh" data-testid="btn-refresh" title="Reload all data"><i class="fa-solid fa-rotate"></i> Refresh</button>
+      <button class="aev-btn" id="btn-sync" data-testid="btn-sync" title="Re-snapshot the schema"><i class="fa-solid fa-diagram-project"></i> Sync schema</button>
+      <button class="aev-btn primary" id="btn-heal" data-testid="btn-heal" title="Run all checks + auto-heal"><i class="fa-solid fa-wand-magic-sparkles"></i> Self-heal</button>
     </div>
   </header>
 
@@ -94,8 +101,7 @@
   const get = (k) => localStorage.getItem(k);
   const token = (function(){
     for (const k of ['token','authToken','auth_token','jwt','access_token','userToken']) {
-      const v = get(k);
-      if (v && v.split('.').length === 3) return v;
+      const v = get(k); if (v && v.split('.').length === 3) return v;
     }
     return null;
   })();
@@ -107,14 +113,21 @@
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
       body: JSON.stringify({action, ...body}),
     });
-    if (r.status === 401) { document.getElementById('auth-overlay').classList.add('show'); throw new Error('auth'); }
+    if (r.status === 401) { showOverlay('Authentication required', 'Your session expired. Sign in again.'); throw new Error('auth'); }
+    if (r.status === 403) { showOverlay('Super-admin access only', 'The Command Centre is restricted to super-admins. You can still chat with Aether through the floating panel on any ERP page.', true); throw new Error('forbidden'); }
     return r.json();
   }
+  function showOverlay(title, msg, roleRequired){
+    document.getElementById('overlay-title').textContent = title;
+    document.getElementById('overlay-msg').innerHTML = msg;
+    document.getElementById('overlay-role-tag').style.display = roleRequired ? 'inline-block' : 'none';
+    document.getElementById('auth-overlay').classList.add('show');
+  }
 
-  function toast(msg, bad=false){
+  function toast(msg, kind='ok'){
     const t = document.createElement('div');
-    t.className = 'aev-toast' + (bad ? ' bad' : '');
-    t.innerHTML = '<i class="fa-solid fa-' + (bad ? 'circle-exclamation' : 'circle-check') + '"></i> ' + esc(msg);
+    t.className = 'aev-toast' + (kind==='bad' ? ' bad' : kind==='warn' ? ' warn' : '');
+    t.innerHTML = '<i class="fa-solid fa-' + (kind==='bad' ? 'circle-exclamation' : kind==='warn' ? 'triangle-exclamation' : 'circle-check') + '"></i> ' + esc(msg);
     document.body.appendChild(t);
     setTimeout(() => { t.style.opacity = '0'; t.style.transform = 'translateX(20px)'; setTimeout(()=>t.remove(), 300); }, 3500);
   }
@@ -122,14 +135,28 @@
   function fmt(n){return Number(n).toLocaleString('en-IN')}
   function fmtTime(ts){ if(!ts) return '—'; return new Date(ts.replace(' ','T')).toLocaleString('en-IN',{dateStyle:'medium',timeStyle:'short'}); }
 
+  // Color-code KPI by label keyword
+  function kpiCategory(label){
+    const l = label.toLowerCase();
+    if (l.includes('donat') || l.includes('contributor') || l.includes('gift')) return 'donations';
+    if (l.includes('expense') || l.includes('spend')) return 'expenses';
+    if (l.includes('employ') || l.includes('staff') || l.includes('payroll') || l.includes('volunteer')) return 'hr';
+    if (l.includes('inventor') || l.includes('stock') || l.includes('item')) return 'inventory';
+    if (l.includes('blog') || l.includes('gallery') || l.includes('content') || l.includes('project') || l.includes('program')) return 'cms';
+    return '';
+  }
+
   function renderKpis(kpis){
     const grid = document.getElementById('kpis-grid');
-    grid.innerHTML = (kpis||[]).map((k,i) => `
-      <div class="aev-kpi" data-testid="kpi-${esc(k.label.replace(/\s+/g,'-').toLowerCase())}" style="animation-delay:${i*40}ms">
+    grid.innerHTML = (kpis||[]).map((k,i) => {
+      const cat = kpiCategory(k.label);
+      return `
+      <div class="aev-kpi ${cat}" data-testid="kpi-${esc(k.label.replace(/\s+/g,'-').toLowerCase())}" style="animation-delay:${i*40}ms">
         <i class="fa-solid fa-${esc(k.icon||'circle')}"></i>
         <div class="kpi-label">${esc(k.label)}</div>
         <div class="kpi-value">${esc(k.value)}</div>
-      </div>`).join('');
+      </div>`;
+    }).join('');
   }
 
   function renderHealth(health){
@@ -145,7 +172,7 @@
     document.getElementById('health-checks').innerHTML = (health.checks||[]).map(c => `
       <div class="aev-check ${c.status}">
         <div class="check-ico"><i class="fa-solid fa-${c.status==='ok'?'check':c.status==='warn'?'triangle-exclamation':'xmark'}"></i></div>
-        <div class="check-body"><div class="check-title">${esc(c.title)}</div><div class="check-detail">${esc(c.detail||'')}</div></div>
+        <div><div class="check-title">${esc(c.title)}</div><div class="check-detail">${esc(c.detail||'')}</div></div>
         <span class="aev-tag sev-${c.severity}">${esc(c.severity)}</span>
       </div>`).join('');
   }
@@ -165,7 +192,7 @@
   function renderModules(kg){
     document.getElementById('kg-count').textContent = `${kg.tables||0} tables · ${kg.columns||0} cols · ${kg.relationships||0} links`;
     document.getElementById('modules-grid').innerHTML = (kg.modules||[]).map(m => `
-      <div class="aev-module-chip">
+      <div class="aev-module-chip" data-module="${esc(m.module)}">
         <div class="mod-name">${esc(m.module)}</div>
         <div class="mod-count">${esc(m.c)}</div>
       </div>`).join('');
@@ -197,15 +224,12 @@
       const snaps = r.snapshots || [];
       const changes = r.changes || [];
       meta.textContent = `${snaps.length} snapshot${snaps.length===1?'':'s'} · ${changes.length} change${changes.length===1?'':'s'} tracked`;
-
       if (!snaps.length) { pane.innerHTML = '<div class="aev-empty">No snapshots yet — click <strong>Sync schema</strong> to create the first.</div>'; return; }
 
-      // group changes
       const grouped = { created:[], dropped:[], added:[], removed:[], modified:[] };
       changes.forEach(c => { (grouped[c.change_type] || (grouped[c.change_type]=[])).push(c); });
       const cur = snaps[0], prev = snaps[1];
-
-      const card = (title, badge, items, icon, cls) => `
+      const card = (title, items, icon, cls) => `
         <div class="diff-card ${cls}">
           <header>
             <i class="fa-solid fa-${icon}"></i>
@@ -223,7 +247,6 @@
             ${items.length > 10 ? `<div class="aev-empty mini">+${items.length-10} more</div>` : ''}
           </div>
         </div>`;
-
       pane.innerHTML = `
         <div class="diff-summary">
           <div class="diff-snap">
@@ -242,18 +265,33 @@
           </div>` : '<div class="aev-empty mini">no previous snapshot</div>'}
         </div>
         <div class="diff-grid">
-          ${card('Tables created', null, grouped.created || [], 'circle-plus', 'good')}
-          ${card('Tables dropped', null, grouped.dropped || [], 'circle-minus', 'bad')}
-          ${card('Columns added',  null, grouped.added   || [], 'plus',      'good')}
-          ${card('Columns removed',null, grouped.removed || [], 'minus',     'bad')}
-          ${card('Modified',       null, grouped.modified|| [], 'pen',       'warn')}
+          ${card('Tables created',  grouped.created,  'circle-plus',  'good')}
+          ${card('Tables dropped',  grouped.dropped,  'circle-minus', 'bad')}
+          ${card('Columns added',   grouped.added,    'plus',         'good')}
+          ${card('Columns removed', grouped.removed,  'minus',        'bad')}
+          ${card('Modified',        grouped.modified, 'pen',          'warn')}
         </div>`;
     } catch (e) { /* auth handled */ }
   }
 
   async function load() {
-    document.getElementById('app').style.display = 'block';
+    // First check identity & enforce role gate
     try {
+      const me = await call('identity');
+      const role = me?.user?.role;
+      const isSuper = role === 'super_admin';
+      document.getElementById('user-role-tag').textContent = role || '—';
+
+      if (!isSuper) {
+        showOverlay(
+          'Super-admin access only',
+          'The Command Centre is restricted to <strong>super-admins</strong>. As <code>' + esc(role||'?') + '</code> you can still ask Aether anything through the <strong>floating panel</strong> on any ERP page.',
+          true
+        );
+        return;
+      }
+      document.getElementById('app').style.display = 'block';
+
       const d = await call('dashboard');
       renderKpis(d.kpis);
       renderHealth(d.health);
@@ -262,7 +300,7 @@
       renderSchema(d.schema);
       renderLearn(d.learning);
       renderSchemaDiff();
-    } catch (e) { if (e.message!=='auth') toast('Failed to load dashboard', true); }
+    } catch (e) { /* error handled by call() */ }
   }
 
   document.getElementById('btn-refresh').addEventListener('click', () => { load(); toast('Refreshed'); });
@@ -271,15 +309,16 @@
       const r = await call('schema_sync');
       toast(r.changed ? `Schema sync: ${(r.changes||[]).length} change(s)` : 'Schema unchanged');
       load();
-    } catch (e) { toast('Sync blocked (admin only?)', true); }
+    } catch (e) { toast('Sync blocked', 'bad'); }
   });
   document.getElementById('btn-heal').addEventListener('click', async () => {
     if (!confirm('Run all health checks and apply auto-heals where allowed?')) return;
     try {
       const r = await call('self_heal');
-      toast(`Healed ${r.healed_count||0} issue(s); overall: ${r.overall}`);
+      toast(`Healed ${r.healed_count||0} issue(s); overall: ${r.overall}`,
+            r.overall === 'ok' ? 'ok' : 'warn');
       load();
-    } catch (e) { toast('Self-heal blocked (admin only?)', true); }
+    } catch (e) { toast('Self-heal blocked', 'bad'); }
   });
 
   load();

@@ -52,6 +52,23 @@ class AetherNLP
         'schema_info'     => ['describe table', 'schema of', 'fields in', 'columns of', 'structure of'],
         'find_module'     => ['where is', 'how do i', 'navigate to', 'go to module'],
         'audit_recent'    => ['recent audit', 'system log', 'aether activity', 'what did you do'],
+
+        // Module reports
+        'module_report'   => ['report on donations', 'donation report', 'expense report', 'hr report', 'inventory report', 'monthly report', 'quarterly report', 'analyse donations', 'analyse expenses', 'breakdown of expenses', 'department-wise spend', 'category breakdown'],
+
+        // Content/AI helpers
+        'suggest_caption' => ['suggest caption', 'caption for image', 'image description', 'alt text', 'photo caption'],
+        'suggest_blog'    => ['draft blog', 'write blog post', 'blog draft', 'write article', 'help me write'],
+
+        // New write planners — "manpower" tasks
+        'create_donor'    => ['add a donor', 'create donor', 'new donor', 'register donor', 'onboard donor', 'add donor named'],
+        'create_volunteer'=> ['register volunteer', 'add volunteer', 'new volunteer', 'onboard volunteer', 'create volunteer'],
+        'approve_expense' => ['approve expense', 'mark expense paid', 'approve the expense', 'expense approval', 'approve spend'],
+        'adjust_inventory'=> ['adjust inventory', 'add stock', 'remove stock', 'increase quantity of', 'decrease quantity of', 'restock', 'consume stock'],
+        'add_inventory_item' => ['add inventory item', 'create item', 'new item in inventory', 'add new item to stock'],
+        'create_program'  => ['create program', 'add program', 'new program', 'launch program'],
+        'create_blog_post'=> ['create blog post', 'publish blog', 'add blog', 'new blog post', 'add article'],
+        'send_message'    => ['send email to', 'send sms to', 'message to', 'email to', 'notify', 'send a thank you to'],
     ];
 
     public function __construct(?PDO $db = null) {

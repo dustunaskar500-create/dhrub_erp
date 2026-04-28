@@ -285,6 +285,49 @@ try {
             AetherPDF::streamPayslip($id);
         }
 
+        // ── Module-level analytical reports ─────────────────────────────
+        case 'module_report': {
+            require_once __DIR__ . '/module-reports.php';
+            $module = (string)($body['module'] ?? ($_GET['module'] ?? 'donations'));
+            $period = AetherModuleReports::detectPeriod((string)($body['period'] ?? '90 days'));
+            $r = AetherModuleReports::build($db, $module, $period);
+            aether_json(['action' => 'module_report', 'module' => $module, 'period' => $period] + $r);
+        }
+
+        // ── Image upload (gallery) ──────────────────────────────────────
+        case 'upload_image': {
+            $filename = (string)($body['filename'] ?? '');
+            $base64   = (string)($body['data'] ?? '');
+            $title    = (string)($body['title'] ?? '');
+            $caption  = (string)($body['caption'] ?? '');
+            $category = (string)($body['category'] ?? 'general');
+            if (!$filename || !$base64) aether_error('filename and data (base64) required');
+            if (!aether_is_admin($user) && !in_array($user['role'] ?? '', ['editor','manager'])) {
+                aether_error('Your role cannot upload to gallery', 403);
+            }
+            // direct insert (no plan — uploads are immediate by design)
+            $clean = preg_replace('/[^A-Za-z0-9._-]/', '_', $filename);
+            $clean = uniqid() . '_' . $clean;
+            $dir = '/app/uploads/aether';
+            if (!is_dir($dir)) @mkdir($dir, 0755, true);
+            $bin = base64_decode($base64) ?: '';
+            file_put_contents("$dir/$clean", $bin);
+            $url = "/uploads/aether/$clean";
+            $stmt = $db->prepare("INSERT INTO gallery (title, image_url, description, category) VALUES (?,?,?,?)");
+            $stmt->execute([$title ?: $filename, $url, $caption, $category]);
+            $id = (int)$db->lastInsertId();
+            AetherAudit::log('image_uploaded', "Image '$filename' uploaded to gallery #$id", ['url'=>$url], 'info', $user['id']);
+            aether_json(['action'=>'upload_image','id'=>$id,'url'=>$url,'size'=>strlen($bin)]);
+        }
+
+        // ── Suggest caption / blog draft (no plan, just a reply) ────────
+        case 'suggest_caption': {
+            $msg = 'suggest caption for "' . ($body['filename'] ?? 'this image') . '"';
+            require_once __DIR__ . '/reasoner.php';
+            $r = (new AetherReasoner($user, $db))->reason($msg);
+            aether_json(['action'=>'suggest_caption','reply'=>$r['reply']]);
+        }
+
         // ── Background tick ─────────────────────────────────────────────
         case 'tick': {
             $watcher = new AetherSchemaWatcher($db);

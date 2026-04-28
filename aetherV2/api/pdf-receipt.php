@@ -15,6 +15,36 @@ class AetherPDF
         return class_exists('Mpdf\\Mpdf');
     }
 
+    /** Render the receipt PDF as a binary string (for email attachment). */
+    public static function renderReceiptString(int $donationId): ?string {
+        $row = aether_db()->prepare(
+            "SELECT d.*, dn.name AS donor_name, dn.email AS donor_email, dn.address AS donor_address,
+                    dn.pan AS donor_pan, p.program_name
+             FROM donations d
+             LEFT JOIN donors  dn ON dn.id = d.donor_id
+             LEFT JOIN programs p ON p.id = d.program_id
+             WHERE d.id = ?"
+        );
+        $row->execute([$donationId]);
+        $r = $row->fetch();
+        if (!$r) return null;
+        $org  = self::orgInfo();
+        $html = self::renderReceiptHTML($r, $org);
+        if (!self::isAvailable()) return null;
+        try {
+            $mpdf = new \Mpdf\Mpdf([
+                'format'      => 'A4',
+                'tempDir'     => sys_get_temp_dir(),
+                'margin_top'  => 12, 'margin_bottom' => 12,
+                'margin_left' => 12, 'margin_right'  => 12,
+            ]);
+            $mpdf->WriteHTML($html);
+            return $mpdf->Output('', 'S');
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
     /** Render donation receipt — outputs PDF (or printable HTML fallback). */
     public static function streamReceipt(int $donationId): void {
         $row = aether_db()->prepare(
