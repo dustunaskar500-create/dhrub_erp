@@ -15,6 +15,7 @@ require_once __DIR__ . '/bootstrap.php';
 require_once __DIR__ . '/nlp-engine.php';
 require_once __DIR__ . '/audit-log.php';
 require_once __DIR__ . '/pending-intents.php';
+require_once __DIR__ . '/rbac.php';
 
 class AetherReasoner
 {
@@ -242,12 +243,15 @@ class AetherReasoner
     }
 
     private function reListDonations(array $entities): array {
+        if (!AetherRBAC::canSeeModule('donations', $this->user)) {
+            return ['text' => "Your role (`{$this->user['role']}`) doesn't have permission to view donation records. " . AetherRBAC::describe($this->user)];
+        }
         $stmt = $this->db->query(
-            "SELECT d.donation_code, d.amount, d.donation_date, COALESCE(dn.name,'-') donor
+            "SELECT d.donation_code, d.amount, d.donation_date, COALESCE(dn.name,'-') donor, dn.email, dn.phone
              FROM donations d LEFT JOIN donors dn ON dn.id = d.donor_id
              ORDER BY d.id DESC LIMIT 10"
         );
-        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $rows = AetherRBAC::redactRows($stmt->fetchAll(PDO::FETCH_ASSOC), $this->user);
         if (!$rows) return ['text' => 'No donations recorded yet.'];
         $lines = ["**Last 10 donations:**"];
         foreach ($rows as $r) {
@@ -257,7 +261,13 @@ class AetherReasoner
     }
 
     private function reListDonors(array $entities): array {
-        $rows = $this->db->query("SELECT id, name, email, phone FROM donors ORDER BY id DESC LIMIT 15")->fetchAll(PDO::FETCH_ASSOC);
+        if (!AetherRBAC::canSeeModule('donors', $this->user)) {
+            return ['text' => "Your role (`{$this->user['role']}`) doesn't have permission to view donors. " . AetherRBAC::describe($this->user)];
+        }
+        $rows = AetherRBAC::redactRows(
+            $this->db->query("SELECT id, name, email, phone, pan FROM donors ORDER BY id DESC LIMIT 15")->fetchAll(PDO::FETCH_ASSOC),
+            $this->user
+        );
         if (!$rows) return ['text' => 'No donors found.'];
         $lines = ['**Recent donors:**'];
         foreach ($rows as $r) $lines[] = "• {$r['name']} — {$r['email']} / {$r['phone']}";
@@ -265,7 +275,13 @@ class AetherReasoner
     }
 
     private function reListExpenses(array $entities): array {
-        $rows = $this->db->query("SELECT expense_category, amount, expense_date, description FROM expenses ORDER BY id DESC LIMIT 10")->fetchAll(PDO::FETCH_ASSOC);
+        if (!AetherRBAC::canSeeModule('expenses', $this->user)) {
+            return ['text' => "Your role can't see expense detail. " . AetherRBAC::describe($this->user)];
+        }
+        $rows = AetherRBAC::redactRows(
+            $this->db->query("SELECT expense_category, amount, expense_date, description FROM expenses ORDER BY id DESC LIMIT 10")->fetchAll(PDO::FETCH_ASSOC),
+            $this->user
+        );
         if (!$rows) return ['text' => 'No expenses recorded.'];
         $lines = ['**Recent expenses:**'];
         foreach ($rows as $r) {
@@ -276,12 +292,21 @@ class AetherReasoner
     }
 
     private function reListEmployees(array $entities): array {
-        $rows = $this->db->query("SELECT name, designation, department, net_salary FROM employees WHERE status='active' OR status IS NULL ORDER BY id DESC LIMIT 15")->fetchAll(PDO::FETCH_ASSOC);
+        if (!AetherRBAC::canSeeModule('hr', $this->user)) {
+            return ['text' => "Your role doesn't have HR access. " . AetherRBAC::describe($this->user)];
+        }
+        $rows = AetherRBAC::redactRows(
+            $this->db->query("SELECT name, designation, department, net_salary, basic_salary FROM employees WHERE status='active' OR status IS NULL ORDER BY id DESC LIMIT 15")->fetchAll(PDO::FETCH_ASSOC),
+            $this->user
+        );
         if (!$rows) return ['text' => 'No active employees found.'];
         $lines = ['**Active employees:**'];
         foreach ($rows as $r) {
-            $sal = (float)($r['net_salary'] ?? 0);
-            $lines[] = "• {$r['name']} — {$r['designation']} ({$r['department']}) · ₹" . number_format($sal, 2);
+            $sal = (float)($r['net_salary'] ?? $r['basic_salary'] ?? 0);
+            $salStr = is_string($r['net_salary'] ?? null) && str_contains((string)$r['net_salary'], 'redacted')
+                ? '••• salary redacted •••'
+                : '₹' . number_format($sal, 2);
+            $lines[] = "• {$r['name']} — {$r['designation']} ({$r['department']}) · $salStr";
         }
         return ['text' => implode("\n", $lines)];
     }

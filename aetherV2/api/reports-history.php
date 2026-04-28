@@ -78,14 +78,30 @@ class AetherReportsHistory
      * @param string $module donations|expenses|hr|inventory|programs|volunteers|cms|audit
      * @param string $period e.g. "30 days"
      */
-    public static function exportModuleCsv(string $module, string $period): void {
+    public static function exportModuleCsv(string $module, string $period, string $from = '', string $to = '', ?array $user = null): void {
         require_once __DIR__ . '/module-reports.php';
+        require_once __DIR__ . '/rbac.php';
         $db = aether_db();
-        $periodInfo = AetherModuleReports::detectPeriod($period);
-        $label = $periodInfo['label'] ?? $period;
-        $days  = (int)($periodInfo['days'] ?? 90);
+        $useExplicit = preg_match('/^\d{4}-\d{2}-\d{2}$/', $from) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $to);
 
-        [$headers, $rows, $title] = self::moduleRows($db, $module, $days);
+        if ($useExplicit) {
+            $label = "$from to $to";
+            $cutoff = "BETWEEN " . $db->quote($from) . " AND " . $db->quote($to);
+        } else {
+            $periodInfo = AetherModuleReports::detectPeriod($period);
+            $label = $periodInfo['label'] ?? $period;
+            $days  = (int)($periodInfo['days'] ?? 90);
+            $cutoff = ">= DATE_SUB(CURRENT_DATE, INTERVAL " . $days . " DAY)";
+        }
+
+        [$headers, $rows, $title] = self::moduleRows($db, $module, $cutoff, $useExplicit);
+        if ($user) {
+            $rows = array_map(function($r) use ($user, $headers) {
+                $assoc = array_combine($headers, array_pad($r, count($headers), null));
+                $assoc = AetherRBAC::redactRow($assoc, $user);
+                return array_values($assoc);
+            }, $rows);
+        }
 
         while (ob_get_level()) ob_end_clean();
         header('Content-Type: text/csv; charset=UTF-8');
@@ -93,6 +109,7 @@ class AetherReportsHistory
         $fp = fopen('php://output', 'w');
         fputcsv($fp, ["# Aether Report: $title"]);
         fputcsv($fp, ["# Period: $label"]);
+        fputcsv($fp, ["# Role: " . ($user['role'] ?? 'unknown')]);
         fputcsv($fp, ["# Generated: " . date('Y-m-d H:i:s')]);
         fputcsv($fp, []);
         fputcsv($fp, $headers);
@@ -101,16 +118,19 @@ class AetherReportsHistory
         exit;
     }
 
-    /** Build raw header+rows for a given module's CSV export. */
-    private static function moduleRows(PDO $db, string $module, int $days): array {
-        $cutoff = "DATE_SUB(CURRENT_DATE, INTERVAL " . $days . " DAY)";
-
+    /**
+     * Build raw header+rows for a given module.
+     * $cutoff is a complete SQL fragment like "BETWEEN '2026-01-01' AND '2026-04-30'"
+     * or ">= DATE_SUB(CURRENT_DATE, INTERVAL 90 DAY)".
+     */
+    private static function moduleRows(PDO $db, string $module, string $cutoff, bool $useExplicit): array {
+        // $cutoff is a complete predicate fragment to follow a column reference.
         switch ($module) {
             case 'donations':
                 $rows = $db->query(
                     "SELECT d.donation_code, dn.name AS donor, d.amount, d.donation_date, d.payment_method, d.status
                      FROM donations d LEFT JOIN donors dn ON dn.id = d.donor_id
-                     WHERE d.donation_date >= $cutoff ORDER BY d.donation_date DESC"
+                     WHERE d.donation_date $cutoff ORDER BY d.donation_date DESC"
                 )->fetchAll(PDO::FETCH_ASSOC);
                 return [['Donation Code','Donor','Amount (₹)','Date','Method','Status'],
                         array_map(fn($r) => array_values($r), $rows),
@@ -121,12 +141,23 @@ class AetherReportsHistory
                     "SELECT e.id, e.expense_category, e.amount, e.expense_date, e.description,
                             COALESCE(p.program_name,'') AS program
                      FROM expenses e LEFT JOIN programs p ON p.id = e.program_id
-                     WHERE e.expense_date >= $cutoff ORDER BY e.expense_date DESC"
+                     WHERE e.expense_date $cutoff ORDER BY e.expense_date DESC"
                 )->fetchAll(PDO::FETCH_ASSOC);
                 return [['ID','Category','Amount (₹)','Date','Description','Program'],
                         array_map(fn($r) => array_values($r), $rows),
                         'Expenses'];
 
+            case 'audit':
+                // audit log is filterable by created_at
+                $rows = $db->query(
+                    "SELECT id, event_type, summary, severity, user_id, created_at FROM aether_audit_log
+                     WHERE created_at $cutoff ORDER BY id DESC LIMIT 1000"
+                )->fetchAll(PDO::FETCH_ASSOC);
+                return [['ID','Event Type','Summary','Severity','User ID','Timestamp'],
+                        array_map(fn($r) => array_values($r), $rows),
+                        'Audit Log'];
+
+            // Modules without a date column — ignore $cutoff
             case 'hr':
                 $rows = $db->query(
                     "SELECT id, name, designation, department, email, phone, basic_salary, status
@@ -167,14 +198,6 @@ class AetherReportsHistory
                 return [['ID','Title','Slug','Category','Author','Published','Created At'],
                         array_map(fn($r) => array_values($r), $rows),
                         'Blog Posts'];
-
-            case 'audit':
-                $rows = $db->query(
-                    "SELECT id, event_type, summary, severity, user_id, created_at FROM aether_audit_log ORDER BY id DESC LIMIT 500"
-                )->fetchAll(PDO::FETCH_ASSOC);
-                return [['ID','Event Type','Summary','Severity','User ID','Timestamp'],
-                        array_map(fn($r) => array_values($r), $rows),
-                        'Audit Log'];
 
             default:
                 return [['Info'], [['Unknown module']], 'Unknown'];

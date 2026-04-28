@@ -98,6 +98,7 @@
         <button class="aev-tab" data-pane="reports" data-testid="aether-v2-tab-reports"><i class="fa-solid fa-chart-pie"></i>Reports</button>
         <button class="aev-tab" data-pane="health" data-testid="aether-v2-tab-health"><i class="fa-solid fa-heart-pulse"></i>Health</button>
         <button class="aev-tab" data-pane="plans" data-testid="aether-v2-tab-plans"><i class="fa-solid fa-clipboard-check"></i>Plans</button>
+        <button class="aev-tab" data-pane="import" data-testid="aether-v2-tab-import"><i class="fa-solid fa-file-csv"></i>Import</button>
       </div>
       <div class="aev-panes">
         <div class="aev-pane active" data-pane="chat">
@@ -107,6 +108,7 @@
         <div class="aev-pane" data-pane="reports" id="aev-reports-pane"><div class="aev-empty">Loading…</div></div>
         <div class="aev-pane" data-pane="health" id="aev-health-pane"><div class="aev-empty">Loading…</div></div>
         <div class="aev-pane" data-pane="plans"  id="aev-plans-pane"><div class="aev-empty">Loading…</div></div>
+        <div class="aev-pane" data-pane="import" id="aev-import-pane"><div class="aev-empty">Loading…</div></div>
       </div>
       <div class="aev-quick" id="aev-quick">
         <button data-q="my tasks" data-testid="aether-v2-chip-tasks"><i class="fa-solid fa-list-check"></i>My tasks</button>
@@ -148,6 +150,7 @@
         if (pane==='health')  loadHealth();
         if (pane==='plans')   loadPlans();
         if (pane==='reports') loadReports();
+        if (pane==='import')  loadImport();
       });
     });
 
@@ -523,6 +526,130 @@
         pane.appendChild(el);
       });
     } catch(e){ pane.innerHTML='<div class="aev-empty">Failed to load plans.</div>'; }
+  }
+
+  async function loadImport(){
+    const pane = panel.querySelector('#aev-import-pane');
+    pane.innerHTML = '<div class="aev-empty"><span class="aev-loader"></span></div>';
+    let info;
+    try { info = await call('rbac_info'); } catch (e) { info = { csv_modules: [] }; }
+    const allModules = [
+      {key:'donors',     icon:'address-book',    label:'Donors'},
+      {key:'donations',  icon:'hand-holding-heart', label:'Donations'},
+      {key:'expenses',   icon:'wallet',          label:'Expenses'},
+      {key:'employees',  icon:'user-tie',        label:'Employees'},
+      {key:'volunteers', icon:'people-group',    label:'Volunteers'},
+      {key:'inventory',  icon:'box',             label:'Inventory'},
+      {key:'programs',   icon:'diagram-project', label:'Programs'},
+    ];
+    const allowed = info.csv_modules || [];
+    if (!allowed.length) {
+      pane.innerHTML = '<div class="aev-empty">Your role does not allow bulk imports. Ask a super-admin if you need to upload data.</div>';
+      return;
+    }
+
+    let html = `<div style="font-size:11.5px;color:var(--aev-muted);margin-bottom:14px;line-height:1.55">
+      <i class="fa-solid fa-circle-info" style="color:var(--aev-primary-2)"></i>
+      <strong>Bulk import:</strong> download a sample CSV, fill it in, then upload. Aether validates rows and shows a preview before inserting anything.
+      <span style="display:block;margin-top:6px;font-style:italic">Allowed for your role (${esc(info.role||'')}): <code>${allowed.map(esc).join(', ')}</code></span>
+    </div>`;
+    html += '<div style="display:grid;grid-template-columns:1fr;gap:8px">';
+    for (const m of allModules) {
+      const can = allowed.includes(m.key);
+      html += `<div class="aev-import-row${can?'':' disabled'}" data-mod="${esc(m.key)}" style="padding:11px 13px;border:1px solid var(--aev-line);border-radius:9px;background:#fff;display:flex;align-items:center;gap:10px;${can?'':'opacity:.45;pointer-events:none'}">
+        <i class="fa-solid fa-${m.icon}" style="color:var(--aev-primary-2);font-size:14px;width:20px;text-align:center"></i>
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:600">${esc(m.label)}</div>
+          <div style="font-size:10.5px;color:var(--aev-muted)">${can ? 'Click "Sample" to download template, then "Upload" to import' : 'Not allowed for your role'}</div>
+        </div>
+        <button class="aev-btn aev-tpl-btn" data-mod="${esc(m.key)}" style="padding:5px 10px;font-size:11.5px"><i class="fa-solid fa-download"></i> Sample</button>
+        <button class="aev-btn primary aev-up-btn" data-mod="${esc(m.key)}" style="padding:5px 10px;font-size:11.5px"><i class="fa-solid fa-upload"></i> Upload</button>
+      </div>`;
+    }
+    html += '</div>';
+    html += '<div id="aev-import-result" style="margin-top:14px"></div>';
+
+    pane.innerHTML = html;
+    pane.querySelectorAll('.aev-tpl-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const m = btn.dataset.mod;
+        try {
+          const url = `/aetherV2/api/aether.php?action=csv_template&module=${encodeURIComponent(m)}`;
+          const r = await fetch(url, { headers: { 'Authorization': 'Bearer ' + getToken() }});
+          const blob = await r.blob();
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = `aether-${m}-sample.csv`;
+          document.body.appendChild(a); a.click(); a.remove();
+        } catch (e) {}
+      });
+    });
+    pane.querySelectorAll('.aev-up-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const m = btn.dataset.mod;
+        const inp = document.createElement('input');
+        inp.type = 'file'; inp.accept = '.csv,text/csv'; inp.style.display = 'none';
+        document.body.appendChild(inp);
+        inp.addEventListener('change', () => uploadCsvForModule(inp.files?.[0], m));
+        inp.click();
+        setTimeout(() => inp.remove(), 200);
+      });
+    });
+  }
+
+  async function uploadCsvForModule(file, module){
+    if (!file) return;
+    const result = panel.querySelector('#aev-import-result');
+    result.innerHTML = '<div class="aev-empty"><span class="aev-loader"></span></div>';
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const base64 = reader.result.split(',')[1];
+      try {
+        const prev = await call('csv_import_preview', { module, data: base64, filename: file.name });
+        if (!prev.ok) { result.innerHTML = `<div class="aev-empty" style="color:var(--aev-bad)">${esc(prev.error || 'Preview failed')}</div>`; return; }
+        renderInlineCsvPreview(prev, result, module);
+      } catch (e) {
+        result.innerHTML = '<div class="aev-empty" style="color:var(--aev-bad)">Upload failed.</div>';
+      }
+    };
+    reader.readAsDataURL(file);
+  }
+  function renderInlineCsvPreview(prev, target, module){
+    const okN = prev.rows_ok || 0, badN = prev.rows_failed || 0, totN = prev.rows_total || 0;
+    let html = `<div style="padding:14px;border:1px solid var(--aev-line);border-radius:9px;background:#fff">
+      <div style="font-weight:600;font-size:13px;margin-bottom:10px"><i class="fa-solid fa-eye" style="color:var(--aev-primary-2)"></i> Preview — <code>${esc(module)}</code></div>
+      <div class="aev-cardlets" style="grid-template-columns:repeat(3,1fr);margin-bottom:10px">
+        <div class="aev-cardlet"><div class="l">Total</div><div class="v">${totN}</div></div>
+        <div class="aev-cardlet"><div class="l">Valid</div><div class="v" style="color:#10b981">${okN}</div></div>
+        <div class="aev-cardlet"><div class="l">Errors</div><div class="v" style="color:${badN?'#ef4444':'inherit'}">${badN}</div></div>
+      </div>`;
+    if (prev.unknown_columns?.length) html += `<div style="font-size:11px;color:var(--aev-muted);margin-bottom:6px">⚠ Unknown columns ignored: <code>${prev.unknown_columns.map(esc).join(', ')}</code></div>`;
+    if (prev.missing_required?.length) html += `<div style="font-size:11px;color:#ef4444;margin-bottom:6px">✗ Missing required: <code>${prev.missing_required.map(esc).join(', ')}</code></div>`;
+    if (prev.sample_failed?.length) html += `<details style="font-size:11px;color:var(--aev-muted);margin-bottom:8px"><summary>First few errors</summary><ul style="margin:6px 0 0 18px">${prev.sample_failed.slice(0,5).map(s => `<li>Row ${s.row}: ${esc((s.errors||[]).join('; '))}</li>`).join('')}</ul></details>`;
+    if (okN > 0) {
+      html += `<div style="display:flex;gap:8px;margin-top:8px">
+        <button class="aev-btn primary aev-do-import" data-imp="${prev.import_id}" style="font-size:11.5px">Import ${okN} valid row(s)</button>
+        <button class="aev-btn aev-cancel-import" style="font-size:11.5px">Cancel</button>
+      </div>`;
+    } else {
+      html += '<div style="font-size:11.5px;color:#ef4444;margin-top:8px">No valid rows.</div>';
+    }
+    html += '</div>';
+    target.innerHTML = html;
+    target.querySelector('.aev-do-import')?.addEventListener('click', async (e) => {
+      e.target.disabled = true; e.target.textContent = 'Importing…';
+      try {
+        const r = await call('csv_import_execute', { import_id: prev.import_id });
+        if (r.ok) {
+          target.innerHTML = `<div style="padding:11px 13px;background:var(--aev-primary-bg);border:1px solid var(--aev-primary-border);border-radius:8px;color:var(--aev-primary-3);font-size:12.5px">✓ Imported <strong>${r.inserted}</strong> row(s) into <code>${esc(module)}</code>${r.errors?.length ? ` · ${r.errors.length} error(s)` : ''}</div>`;
+        } else {
+          target.innerHTML = `<div class="aev-empty" style="color:var(--aev-bad)">${esc(r.error || 'Import failed')}</div>`;
+        }
+      } catch (e) {
+        target.innerHTML = '<div class="aev-empty" style="color:var(--aev-bad)">Network error.</div>';
+      }
+    });
+    target.querySelector('.aev-cancel-import')?.addEventListener('click', () => { target.innerHTML = ''; });
   }
 
   async function loadReports(){

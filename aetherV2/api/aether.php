@@ -356,15 +356,63 @@ try {
             require_once __DIR__ . '/reports-history.php';
             $module = (string)($body['module'] ?? ($_GET['module'] ?? ''));
             $period = (string)($body['period'] ?? ($_GET['period'] ?? '90 days'));
+            $from   = (string)($body['from'] ?? ($_GET['from'] ?? ''));
+            $to     = (string)($body['to']   ?? ($_GET['to']   ?? ''));
             if (!$module) aether_error('module required', 400);
-            AetherReportsHistory::exportModuleCsv($module, $period);
+            AetherReportsHistory::exportModuleCsv($module, $period, $from, $to, $user);
+        }
+
+        // ── KPI drill-down (clickable cards on dashboard) ───────────────
+        case 'kpi_details': {
+            require_once __DIR__ . '/kpi-details.php';
+            $kpi  = (string)($body['kpi'] ?? '');
+            $from = (string)($body['from'] ?? '') ?: null;
+            $to   = (string)($body['to']   ?? '') ?: null;
+            if (!$kpi) aether_error('kpi required', 400);
+            aether_json(['action'=>'kpi_details'] + AetherKPIDetails::build($user, $kpi, $from, $to));
+        }
+
+        // ── Indian compliance (80G, 12A, FCRA, Form10B, CSR) ────────────
+        case 'compliance_report': {
+            require_once __DIR__ . '/compliance.php';
+            $section = (string)($body['section'] ?? 'overview');
+            $from    = (string)($body['from']    ?? '');
+            $to      = (string)($body['to']      ?? '');
+            if (!$from || !$to) aether_error('from + to (YYYY-MM-DD) required', 400);
+            aether_json(['action'=>'compliance_report'] + AetherCompliance::build($user, $section, $from, $to));
+        }
+        case 'compliance_export': {
+            require_once __DIR__ . '/compliance.php';
+            $section = (string)($body['section'] ?? ($_GET['section'] ?? 'overview'));
+            $from    = (string)($body['from']    ?? ($_GET['from']    ?? ''));
+            $to      = (string)($body['to']      ?? ($_GET['to']      ?? ''));
+            if (!$from || !$to) aether_error('from + to required', 400);
+            AetherCompliance::exportCsv($user, $section, $from, $to);
+        }
+
+        // ── RBAC info (UI uses to render permission hints) ──────────────
+        case 'rbac_info': {
+            require_once __DIR__ . '/rbac.php';
+            aether_json([
+                'action'  => 'rbac_info',
+                'role'    => $user['role'],
+                'description' => AetherRBAC::describe($user),
+                'csv_modules' => AetherRBAC::csvImportableModules($user),
+            ]);
         }
 
         // ── Module-level analytical reports ─────────────────────────────
         case 'module_report': {
             require_once __DIR__ . '/module-reports.php';
             $module = (string)($body['module'] ?? ($_GET['module'] ?? 'donations'));
-            $period = AetherModuleReports::detectPeriod((string)($body['period'] ?? '90 days'));
+            $from   = (string)($body['from'] ?? '');
+            $to     = (string)($body['to']   ?? '');
+            if ($from && $to && preg_match('/^\d{4}-\d{2}-\d{2}$/', $from) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $to)) {
+                $days = max(1, (int)((strtotime($to) - strtotime($from)) / 86400) + 1);
+                $period = ['days' => $days, 'label' => "$from to $to"];
+            } else {
+                $period = AetherModuleReports::detectPeriod((string)($body['period'] ?? '90 days'));
+            }
             $r = AetherModuleReports::build($db, $module, $period);
             aether_json(['action' => 'module_report', 'module' => $module, 'period' => $period] + $r);
         }

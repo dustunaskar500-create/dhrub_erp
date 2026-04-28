@@ -40,8 +40,8 @@ aetherV2/
 
 ## 🚀 2. Upload (Hostinger steps)
 
-1. In Hostinger File Manager, navigate to your ERP's web root (`public_html/`).
-2. Upload the entire `aetherV2/` folder there. Final path: `public_html/aetherV2/`.
+1. In Hostinger File Manager, navigate to your ERP's web root. For Dhrub Foundation ERP this is **`public_html/dhrub_erp/`** (the React build + API live there).
+2. Upload the entire `aetherV2/` folder inside that directory. Final path: **`public_html/dhrub_erp/aetherV2/`**.
 3. Permissions:
    - `aetherV2/` and subfolders: **`755`**
    - All `.php`, `.js`, `.css`, `.htaccess`: **`644`**
@@ -62,7 +62,7 @@ DB_PASS=<your-actual-mysql-password>
 
 # ── JWT — CRITICAL ─────────────────────────────────────────────────────
 # Must EXACTLY match the JWT_SECRET your ERP uses to sign tokens.
-# Find it in /public_html/config/database.php (look for: define('JWT_SECRET', '...'))
+# Find it in /public_html/dhrub_erp/config/database.php (look for: define('JWT_SECRET', '...'))
 JWT_SECRET=dhrub-foundation-erp-jwt-secret-2024
 
 # ── Notifications — high-severity audit alerts ─────────────────────────
@@ -94,7 +94,7 @@ TIMEZONE=Asia/Kolkata
 
 ## 🎯 4. Wire it into your ERP — **only one file changes**
 
-Open the HTML file your ERP serves (the same one that loads your React/Vue/static front-end). For Dhrub ERP this is **`/public_html/app.html`**. Find the closing `</body>` tag and add one line above it:
+Open the HTML file your ERP serves (the same one that loads your React/Vue/static front-end). For Dhrub ERP this is **`/public_html/dhrub_erp/app.html`**. Find the closing `</body>` tag and add one line above it:
 
 ```html
     <!-- ── Aether v2 — autonomous brain ── -->
@@ -124,7 +124,7 @@ In Hostinger hPanel → **Advanced → Cron Jobs**, add:
 
 | Schedule              | Command                                                                          |
 | --------------------- | -------------------------------------------------------------------------------- |
-| `*/2 * * * *`         | `php /home/uXXXXXXXX/public_html/aetherV2/api/heartbeat.php --once`              |
+| `*/2 * * * *`         | `php /home/uXXXXXXXX/public_html/dhrub_erp/aetherV2/api/heartbeat.php --once`              |
 
 Replace `uXXXXXXXX` with your actual Hostinger user ID (visible in hPanel → File Manager URL).
 

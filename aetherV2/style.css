@@ -167,6 +167,13 @@
 .aev-report-preview .kpi .l{font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--aev-muted);font-weight:600}
 .aev-report-preview .kpi .v{font-size:22px;font-weight:600;color:var(--aev-text);margin-top:4px;letter-spacing:-.02em}
 
+/* Clickable KPI cards with drill-down hint */
+.aev-kpi.clickable{cursor:pointer;position:relative;transition:all .18s ease}
+.aev-kpi.clickable:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(16,185,129,.18);border-color:var(--aev-primary)}
+.aev-kpi.clickable:hover .kpi-drill-hint{opacity:1;transform:translateY(0)}
+.kpi-drill-hint{position:absolute;bottom:8px;right:10px;font-size:9.5px;font-weight:600;color:var(--aev-primary-3);text-transform:uppercase;letter-spacing:.06em;opacity:0;transform:translateY(4px);transition:all .2s ease;background:var(--aev-primary-bg);padding:3px 7px;border-radius:9999px;border:1px solid var(--aev-primary-border)}
+.kpi-drill-hint i{font-size:8px;margin-right:3px}
+
 .aev-actions{display:flex;gap:8px;flex-wrap:wrap}
 .aev-btn{padding:9px 14px;border:1px solid var(--aev-line);background:var(--aev-card);color:var(--aev-text);border-radius:var(--radius);font:inherit;font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:8px;font-family:inherit;white-space:nowrap}
 .aev-btn:hover{border-color:var(--aev-primary);color:var(--aev-primary-2);background:var(--aev-primary-bg)}

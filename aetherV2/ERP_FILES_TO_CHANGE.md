@@ -9,7 +9,7 @@
 
 ### `app.html` (or whichever HTML file your ERP serves)
 
-This is the static HTML shell that loads your ERP front-end. In Dhrub Foundation ERP it's `/public_html/app.html`.
+This is the static HTML shell that loads your ERP front-end. In Dhrub Foundation ERP it's `/public_html/dhrub_erp/app.html`.
 
 **Add one line** before the closing `</body>` tag:
 

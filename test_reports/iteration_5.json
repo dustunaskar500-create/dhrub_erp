@@ -1,0 +1,40 @@
+{
+  "summary": "Aether v2 iter5 (RBAC + Compliance + KPI drill-down + Custom date reports + Floating Import tab) — comprehensive backend + frontend verification. Backend: 18/18 iter5 tests pass (test_aetherV2_iter5.py) + 13 supplementary tests added (test_aetherV2_iter5_extra.py) covering Form10B auditor_checklist, compliance combined-section response, viewer/hr/manager access control matrix, all KPI variants (expenses/employees/volunteers/inventory_items/programs), and report_export with custom dates. Final: 31/31 backend tests pass (100%). Frontend: 7 tabs render correctly (Overview/Pending Tasks/Reports/Compliance/Schema Diff/Knowledge/Audit Trail), 8 KPI cards on Overview have .aev-kpi.clickable class and clicking opens #drill-modal with Export CSV. Compliance tab fully functional: section dropdown, from/to date inputs, FY quick-selector, Build/Export/Print buttons all wired. Compliance Build for 80G with 2025-04-01..2026-03-31 renders KPI block + cash-receipts flag + receipt-register table (10246 chars rendered). Reports tab Period dropdown has 'Custom range…' option that reveals from/to date inputs; FY current preset auto-fills 2026-04-01..2027-03-31 (correct because system date is 28 Apr 2026 → FY 26-27 is current). Floating panel opens on dashboard.php, Import tab shows 7 module rows with Sample/Upload buttons + role-allowed banner; Sample download for Donors triggers aether-donors-sample.csv as expected.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "compliance_report (response shape)", "issue": "Combined and per-section responses wrap payload under data.{section_keys} rather than promoting section keys to top level. Functional only — tests expecting flat keys must dereference response['data']."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_aetherV2_iter5.py",
+    "/app/backend/tests/test_aetherV2_iter5_extra.py",
+    "/app/test_reports/pytest/aetherV2_iter5_full.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "RBAC enforcement is consistent across endpoints: rbac_info returns role-specific csv_modules + descriptions (super_admin=7, manager=6, accountant=3, hr=2, editor=2, viewer=0). Chat reasoner.php list endpoints redact email/phone for editor and basic_salary/net_salary for accountant via AetherRBAC.redactRow. compliance_report blocks editor/viewer/hr with ok:false; manager + accountant allowed. kpi_details blocks editor.",
+    "Compliance reports cover all 5 sections (80G/12A/FCRA/CSR/Form10B) + overview + combined. 80G computes cash-above-2k flag correctly. 12A computes 85% application rule + shortfall + programme utilisation. FCRA splits by Indian fiscal quarters (Apr-Mar). Form10B includes auditor_checklist (PAN-for-large-donations, 85%-rule, programme_utilisation tabular).",
+    "KPI drill-down (action=kpi_details) supports 7 KPIs (total_donations, donors, expenses, employees, volunteers, inventory_items, programs) and returns aggregates+rows+breakdown. Frontend opens #drill-modal on click with Export CSV button.",
+    "Module reports + report_export honour custom from/to query params and produce CSV with '# Compliance Report' or '# Aether Report' header.",
+    "csv_import_preview/execute now silently drops unknown columns (insertGeneric in csv-importer.php filters against table schema) — fixes the iter4-reported amount-column donors regression.",
+    "Dashboard 7-tab layout, drill-modal, FY presets, custom date inputs, Print/Save PDF for compliance, and floating Import tab with per-role gating + 7 module rows (Sample/Upload buttons) all wired and functional.",
+    "Banner in Import tab clearly lists allowed modules per role and disables Upload buttons for restricted modules (visual opacity + pointer-events:none)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_aetherV2_iter5_extra.py (new — 13 supplementary tests)"
+  ],
+  "success_rate": {"backend": "100% (31/31 — 18 iter5 + 13 extra)", "frontend": "100% (7 tabs + KPI drill-down + compliance build + custom dates + import panel + sample download all verified)"},
+  "test_credentials": "super_admin: sbrata9843@gmail.com/admin123 (185-char JWT). All 6 roles tested — credentials in /app/memory/test_credentials.md remain valid.",
+  "seed_data_creation": "No new seed data — used existing donors/donations/expenses/employees/programmes from /app/erp_workspace/dhrub_erp.sql restoration.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend tests: pytest /app/backend/tests/test_aetherV2_iter5.py /app/backend/tests/test_aetherV2_iter5_extra.py -q (31 tests, ~1.7s). Frontend dashboard URL: http://localhost:8001/aetherV2/dashboard.php (NOT public preview URL — public URL routes to React not Apache). Use Playwright add_init_script to seed both 'access_token' and 'token' localStorage keys before navigation. Compliance API responses wrap payload under j['data'] — section keys (auditor_checklist, application_pct, etc.) live there, not at top level. FY current evaluated against system date which is 28 Apr 2026 so FY current=2026-27, FY previous=2025-26. KPI drill-modal selector: #drill-modal.show. Import tab inside floating panel: data-testid='aether-v2-tab-import' and rows have class .aev-import-row[data-mod=...]. Sample download fires native download with filename aether-{module}-sample.csv. CSV importer now drops unknown columns (iter4 'amount column' bug fixed).",
+  "rca_of_issues": "No outstanding bugs from iter5 scope. The earlier iter4-reported csv_import unknown-column bug is now fixed in csv-importer.php (insertGeneric filters against information_schema). The minor 'response wrapping under data' is a stylistic API choice, not a bug — frontend dashboard.php correctly dereferences j.data."
+}
