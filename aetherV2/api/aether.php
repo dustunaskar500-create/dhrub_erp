@@ -323,6 +323,43 @@ try {
             aether_json(['action'=>'my_tasks'] + AetherMyTasks::for_($user));
         }
 
+        // ── Task assignments (super_admin / admin) ──────────────────────
+        case 'all_pending_plans': {
+            require_once __DIR__ . '/task-assignments.php';
+            $intent = (string)($body['intent'] ?? '') ?: null;
+            $assignedTo = (int)($body['assigned_to'] ?? 0) ?: null;
+            aether_json(['action'=>'all_pending_plans'] + AetherTaskAssignments::listAllPending($user, $intent, $assignedTo));
+        }
+        case 'assign_plan': {
+            require_once __DIR__ . '/task-assignments.php';
+            $pid = (int)($body['plan_id'] ?? 0);
+            $aid = (int)($body['assignee_id'] ?? 0);
+            $note = trim((string)($body['note'] ?? ''));
+            if (!$pid || !$aid) aether_error('plan_id + assignee_id required', 400);
+            aether_json(['action'=>'assign_plan'] + AetherTaskAssignments::assign($user, $pid, $aid, $note));
+        }
+        case 'assigned_to_me': {
+            require_once __DIR__ . '/task-assignments.php';
+            aether_json(['action'=>'assigned_to_me'] + AetherTaskAssignments::assignedToMe($user));
+        }
+        case 'users_list': {
+            require_once __DIR__ . '/task-assignments.php';
+            aether_json(['action'=>'users_list'] + AetherTaskAssignments::userList($user));
+        }
+
+        // ── Reports history & exports ───────────────────────────────────
+        case 'reports_history': {
+            require_once __DIR__ . '/reports-history.php';
+            aether_json(['action'=>'reports_history'] + AetherReportsHistory::list($user));
+        }
+        case 'report_export': {
+            require_once __DIR__ . '/reports-history.php';
+            $module = (string)($body['module'] ?? ($_GET['module'] ?? ''));
+            $period = (string)($body['period'] ?? ($_GET['period'] ?? '90 days'));
+            if (!$module) aether_error('module required', 400);
+            AetherReportsHistory::exportModuleCsv($module, $period);
+        }
+
         // ── Module-level analytical reports ─────────────────────────────
         case 'module_report': {
             require_once __DIR__ . '/module-reports.php';

@@ -164,6 +164,12 @@ function aether_run_migrations(?PDO $db = null): array {
         AetherPendingIntents::ensureTable($db);
     } catch (\Throwable $e) {}
 
+    // task assignments (super_admin can re-assign pending plans)
+    try {
+        require_once __DIR__ . '/task-assignments.php';
+        AetherTaskAssignments::ensureTable($db);
+    } catch (\Throwable $e) {}
+
     // CSV import job table
     try {
         $db->exec(

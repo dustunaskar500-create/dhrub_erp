@@ -764,6 +764,7 @@ class AetherReasoner
             $result = $this->applyPlan($plan, $row['intent']);
             $this->db->commit();
             $this->db->prepare("UPDATE aether_action_plans SET status='executed', executed_at=NOW() WHERE id = ?")->execute([$planId]);
+            try { require_once __DIR__ . '/task-assignments.php'; AetherTaskAssignments::markPlanResolved($planId); } catch (\Throwable $e) {}
             AetherAudit::log('plan_executed', "Executed: {$row['preview']}", ['plan_id' => $planId, 'result' => $result],
                 'medium', $this->user['id'] ?? null, $row['intent']);
             return ['ok' => true, 'result' => $result];
@@ -898,6 +899,7 @@ class AetherReasoner
 
     public function rejectPlan(int $planId): array {
         $this->db->prepare("UPDATE aether_action_plans SET status='rejected' WHERE id = ? AND status='proposed'")->execute([$planId]);
+        try { require_once __DIR__ . '/task-assignments.php'; AetherTaskAssignments::markPlanResolved($planId); } catch (\Throwable $e) {}
         AetherAudit::log('plan_rejected', "Plan #$planId rejected", [], 'low', $this->user['id'] ?? null);
         return ['ok' => true];
     }

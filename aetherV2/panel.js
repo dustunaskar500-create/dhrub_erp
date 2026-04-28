@@ -144,8 +144,9 @@
         t.classList.add('active');
         const pane = t.dataset.pane;
         panel.querySelector(`.aev-pane[data-pane="${pane}"]`).classList.add('active');
-        if (pane==='health') loadHealth();
-        if (pane==='plans')  loadPlans();
+        if (pane==='tasks')   loadTasks();
+        if (pane==='health')  loadHealth();
+        if (pane==='plans')   loadPlans();
         if (pane==='reports') loadReports();
       });
     });
@@ -199,14 +200,30 @@
   function attachFile(file){
     if (!file) return;
     const reader = new FileReader();
+    const isCsv = /\.csv$/i.test(file.name) || /csv/i.test(file.type||'');
     reader.onload = () => {
       const dataUri = reader.result;
       const base64 = dataUri.split(',')[1];
-      currentAttachment = { filename: file.name, mime: file.type, data: base64, preview: dataUri };
-      attachedView.querySelector('#aev-attached-img').src = dataUri;
-      attachedView.querySelector('#aev-attached-name').textContent = file.name + ' (' + Math.round(file.size/1024) + ' KB)';
-      attachedView.classList.add('show');
-      input.placeholder = 'Add a caption / title (or just press send)…';
+      currentAttachment = {
+        filename: file.name, mime: file.type, data: base64, preview: dataUri,
+        kind: isCsv ? 'csv' : 'image',
+      };
+      if (isCsv) {
+        // CSV: hide image preview, show a CSV chip
+        attachedView.querySelector('#aev-attached-img').src = '';
+        attachedView.querySelector('#aev-attached-img').style.display = 'none';
+        attachedView.querySelector('#aev-attached-name').innerHTML =
+          '<i class="fa-solid fa-file-csv" style="color:#10b981;margin-right:6px"></i>' +
+          esc(file.name) + ' <span style="opacity:.7">(' + Math.round(file.size/1024) + ' KB)</span>';
+        attachedView.classList.add('show');
+        input.placeholder = 'Type the module: donors / donations / expenses / employees / volunteers / inventory / programs';
+      } else {
+        attachedView.querySelector('#aev-attached-img').src = dataUri;
+        attachedView.querySelector('#aev-attached-img').style.display = '';
+        attachedView.querySelector('#aev-attached-name').textContent = file.name + ' (' + Math.round(file.size/1024) + ' KB)';
+        attachedView.classList.add('show');
+        input.placeholder = 'Add a caption / title (or just press send)…';
+      }
       input.focus();
     };
     reader.readAsDataURL(file);
@@ -275,9 +292,37 @@
     text = (text||'').trim();
     if (!text && !currentAttachment) return;
 
-    // ── Attachment flow: upload to gallery + suggest caption ─────────
+    // ── Attachment flow: upload to gallery (image) OR CSV import (csv) ───
     if (currentAttachment) {
       const att = currentAttachment;
+
+      // CSV import branch
+      if (att.kind === 'csv') {
+        const moduleName = (text || '').trim().toLowerCase().replace(/[^a-z]/g,'');
+        const validModules = ['donors','donations','expenses','employees','volunteers','inventory','programs'];
+        if (!validModules.includes(moduleName)) {
+          bubble('user', md(text || '(csv attached)'));
+          input.value = '';
+          bubble('bot', md(`Please type one of these module names with the CSV: \`${validModules.join('` · `')}\``));
+          return;
+        }
+        bubble('user', md(`📎 import CSV → \`${moduleName}\``));
+        input.value=''; clearAttachment();
+        sendBtn.disabled = true;
+        const t = showTyping();
+        try {
+          const prev = await call('csv_import_preview', { module: moduleName, data: att.data, filename: att.filename });
+          t.remove();
+          if (!prev.ok) { bubble('bot', `<em style="color:var(--aev-bad)">${esc(prev.error || 'Preview failed')}</em>`); return; }
+          renderCsvPreview(prev);
+        } catch (e) {
+          t.remove();
+          bubble('bot', '<em style="color:var(--aev-bad)">CSV preview failed.</em>');
+        } finally { sendBtn.disabled = false; input.focus(); }
+        return;
+      }
+
+      // Image branch (default)
       const userMsg = text || `(uploaded ${att.filename})`;
       bubble('user', md(userMsg) + `<div style="margin-top:6px"><img src="${att.preview}" style="max-width:200px;max-height:140px;border-radius:8px;border:1px solid rgba(255,255,255,.3)"></div>`);
       input.value=''; clearAttachment();
@@ -340,7 +385,100 @@
     refreshBadge();
   }
 
-  // ── Tabs: Health, Plans, Reports ─────────────────────────────────
+  // ── Tabs: Tasks, Health, Plans, Reports ──────────────────────────
+  async function loadTasks(){
+    const pane = panel.querySelector('#aev-tasks-pane');
+    pane.innerHTML = '<div class="aev-empty"><span class="aev-loader"></span></div>';
+    try {
+      const r = await call('my_tasks');
+      let html = `<div style="font-size:13px;line-height:1.6">${md(r.text||'')}</div>`;
+      if (r.cards && r.cards.length) {
+        html = `<div class="aev-cardlets" style="grid-template-columns:repeat(2,1fr);margin-bottom:12px">` +
+               r.cards.map(c => `<div class="aev-cardlet"><div class="l">${esc(c.label)}</div><div class="v">${esc(c.value)}</div></div>`).join('') +
+               '</div>' + html;
+      }
+      // Plans assigned TO me by super_admin
+      try {
+        const a = await call('assigned_to_me');
+        if (a.assignments && a.assignments.length) {
+          html += `<div style="margin-top:14px;padding-top:12px;border-top:1px solid rgba(0,0,0,.06)">
+            <div style="font-size:12px;font-weight:600;color:var(--aev-primary-2);margin-bottom:8px">
+              <i class="fa-solid fa-user-tag"></i> Assigned to you (${a.assignments.length})</div>` +
+            a.assignments.map(asg => `
+              <div class="aev-plan" data-plan="${asg.plan_id}">
+                <div class="aev-plan-h"><i class="fa-solid fa-bolt"></i> Plan #${asg.plan_id} · ${esc(asg.intent)}
+                  <span style="font-size:10.5px;font-weight:500;opacity:.7;margin-left:6px">from ${esc(asg.assigner_name||'admin')}</span></div>
+                <div class="aev-plan-text">${md(asg.preview||'')}${asg.note?'<br><em style="color:var(--aev-muted);font-size:11.5px">📝 '+esc(asg.note)+'</em>':''}</div>
+                <div class="aev-plan-actions">
+                  <button class="approve">✓ Approve & execute</button>
+                  <button class="reject">✗ Reject</button>
+                </div>
+              </div>`).join('') + `</div>`;
+        }
+      } catch(e){}
+      pane.innerHTML = html;
+      // Wire approve/reject for assigned plans
+      pane.querySelectorAll('.aev-plan[data-plan]').forEach(el => {
+        const pid = parseInt(el.getAttribute('data-plan'),10);
+        el.querySelector('.approve')?.addEventListener('click', () => approvePlan(pid, el));
+        el.querySelector('.reject')?.addEventListener('click', () => rejectPlan(pid, el));
+      });
+    } catch(e){ pane.innerHTML='<div class="aev-empty">Failed to load tasks.</div>'; }
+  }
+
+  function renderCsvPreview(prev){
+    const div = document.createElement('div');
+    div.className = 'aev-msg bot';
+    const okN = prev.rows_ok || 0, badN = prev.rows_failed || 0, totN = prev.rows_total || 0;
+    let html = `<div><strong>CSV preview — <code>${esc(prev.module)}</code></strong></div>
+      <div class="aev-cardlets" style="margin-top:10px;grid-template-columns:repeat(3,1fr)">
+        <div class="aev-cardlet"><div class="l">Total</div><div class="v">${totN}</div></div>
+        <div class="aev-cardlet"><div class="l">Valid</div><div class="v" style="color:#10b981">${okN}</div></div>
+        <div class="aev-cardlet"><div class="l">Errors</div><div class="v" style="color:${badN?'#ef4444':'inherit'}">${badN}</div></div>
+      </div>`;
+    if (prev.unknown_columns?.length) {
+      html += `<div style="margin-top:8px;font-size:11.5px;color:var(--aev-muted)">⚠ Unknown columns ignored: <code>${prev.unknown_columns.map(esc).join(', ')}</code></div>`;
+    }
+    if (prev.missing_required?.length) {
+      html += `<div style="margin-top:6px;font-size:11.5px;color:#ef4444">✗ Missing required columns: <code>${prev.missing_required.map(esc).join(', ')}</code></div>`;
+    }
+    if (prev.sample_failed?.length) {
+      html += `<div style="margin-top:8px;font-size:11.5px;color:var(--aev-muted)"><strong>First few errors:</strong><ul style="margin:4px 0 0 18px;padding:0">` +
+        prev.sample_failed.slice(0,3).map(s => `<li>Row ${s.row}: ${esc((s.errors||[]).join('; '))}</li>`).join('') + '</ul></div>';
+    }
+    if (okN > 0) {
+      html += `<div class="aev-plan-actions" style="margin-top:12px">
+        <button class="approve" data-import="${prev.import_id}">✓ Import ${okN} valid row(s)</button>
+        <button class="reject">✗ Cancel</button>
+      </div>`;
+    } else {
+      html += `<div style="margin-top:12px;font-size:11.5px;color:#ef4444">No valid rows to import. Fix your CSV and try again.</div>`;
+    }
+    div.innerHTML = html;
+    body.appendChild(div);
+    body.scrollTop = body.scrollHeight;
+    div.querySelector('.approve')?.addEventListener('click', async () => {
+      const btn = div.querySelector('.approve');
+      btn.disabled = true; btn.textContent = 'Importing…';
+      try {
+        const r = await call('csv_import_execute', { import_id: prev.import_id });
+        if (r.ok) {
+          div.querySelector('.aev-plan-actions').innerHTML =
+            `<span style="color:#10b981;font-size:12px"><i class="fa-solid fa-check"></i> Imported ${r.inserted} row(s) into <code>${esc(prev.module)}</code>` +
+            (r.errors && r.errors.length ? ` · ${r.errors.length} row error(s)` : '') + '</span>';
+        } else {
+          div.querySelector('.aev-plan-actions').innerHTML =
+            `<span style="color:#ef4444;font-size:12px"><i class="fa-solid fa-xmark"></i> ${esc(r.error||'Failed')}</span>`;
+        }
+      } catch(e) {
+        div.querySelector('.aev-plan-actions').innerHTML = '<span style="color:#ef4444;font-size:12px">Network error.</span>';
+      }
+    });
+    div.querySelector('.reject')?.addEventListener('click', () => {
+      div.querySelector('.aev-plan-actions').innerHTML = '<em style="font-size:11.5px;color:var(--aev-muted)">Cancelled. No data imported.</em>';
+    });
+  }
+
   async function loadHealth(){
     const pane = panel.querySelector('#aev-health-pane');
     pane.innerHTML = '<div class="aev-empty">Running checks…</div>';

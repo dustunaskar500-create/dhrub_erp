@@ -78,6 +78,95 @@
 .aev-pill .dot{width:6px;height:6px;background:var(--aev-primary);border-radius:50%;box-shadow:0 0 0 3px rgba(16,185,129,.2);animation:aev-pulse 2s infinite}
 @keyframes aev-pulse{0%,100%{opacity:1}50%{opacity:.5}}
 
+/* ── Dashboard tabs (Command Centre) ── */
+.aev-dash-tabs{display:flex;gap:4px;padding:0 32px;background:var(--aev-card);border-bottom:1px solid var(--aev-line);overflow-x:auto;position:sticky;top:79px;z-index:90}
+.aev-dash-tabs button{background:transparent;border:none;padding:14px 20px;font-size:13.5px;font-weight:500;color:var(--aev-muted);font-family:Outfit,sans-serif;cursor:pointer;display:inline-flex;align-items:center;gap:8px;border-bottom:2px solid transparent;transition:all .18s;letter-spacing:-.01em;white-space:nowrap}
+.aev-dash-tabs button:hover{color:var(--aev-primary-2)}
+.aev-dash-tabs button.active{color:var(--aev-primary-3);border-bottom-color:var(--aev-primary);font-weight:600}
+.aev-dash-tabs button .badge-num{background:var(--aev-primary-bg);color:var(--aev-primary-3);border:1px solid var(--aev-primary-border);font-size:10px;padding:1px 7px;border-radius:9999px;font-weight:600}
+.aev-dash-tabs button.active .badge-num{background:var(--aev-primary);color:#fff;border-color:var(--aev-primary)}
+.aev-dash-pane{display:none}
+.aev-dash-pane.active{display:block;animation:aev-fade-in .25s ease-out}
+@keyframes aev-fade-in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+/* ── Pending Tasks (super_admin) ── */
+.aev-tasks-toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:center}
+.aev-tasks-toolbar .filter{padding:7px 11px;border-radius:8px;border:1px solid var(--aev-line);background:#fff;font-size:12.5px;color:var(--aev-text-2);cursor:pointer;font-family:Manrope,sans-serif}
+.aev-tasks-toolbar select.filter:focus{outline:none;border-color:var(--aev-primary);box-shadow:var(--shadow-glow)}
+.aev-task-row{display:grid;grid-template-columns:1fr auto;gap:14px;padding:14px 16px;background:#fff;border:1px solid var(--aev-line);border-radius:10px;margin-bottom:10px;transition:all .15s;align-items:flex-start}
+.aev-task-row:hover{border-color:var(--aev-primary-border);box-shadow:var(--shadow-md)}
+.aev-task-row.overdue{border-left:3px solid var(--aev-bad)}
+.aev-task-row.aging{border-left:3px solid var(--aev-warn)}
+.aev-task-row.fresh{border-left:3px solid var(--aev-primary)}
+.aev-task-row .t-meta{display:flex;gap:8px;align-items:center;font-size:11px;color:var(--aev-muted);margin-bottom:5px;font-family:'JetBrains Mono',monospace}
+.aev-task-row .t-meta .by{color:var(--aev-text-2);font-weight:600;font-family:Manrope,sans-serif}
+.aev-task-row .t-meta .age.warn{color:var(--aev-warn);font-weight:600}
+.aev-task-row .t-meta .age.bad{color:var(--aev-bad);font-weight:600}
+.aev-task-row .t-title{font-size:14px;font-weight:600;color:var(--aev-text);margin-bottom:4px;letter-spacing:-.01em}
+.aev-task-row .t-preview{font-size:12.5px;color:var(--aev-text-2);line-height:1.55}
+.aev-task-row .t-asg{margin-top:8px;font-size:11px;color:var(--aev-violet);background:var(--aev-violet-bg);padding:4px 10px;border-radius:9999px;display:inline-block}
+.aev-task-row .t-actions{display:flex;flex-direction:column;gap:6px;align-items:stretch;min-width:130px}
+.aev-task-row .t-actions button{font-size:11.5px;padding:6px 10px;border-radius:8px;cursor:pointer;font-weight:600;letter-spacing:.01em;border:1px solid var(--aev-line);background:#fff;color:var(--aev-text-2);transition:all .15s}
+.aev-task-row .t-actions button:hover{border-color:var(--aev-primary);color:var(--aev-primary-2)}
+.aev-task-row .t-actions button.approve{background:var(--aev-primary);color:#fff;border-color:var(--aev-primary)}
+.aev-task-row .t-actions button.approve:hover{background:var(--aev-primary-2);color:#fff}
+.aev-task-row .t-actions button.reject{color:var(--aev-bad);border-color:var(--aev-bad-bd)}
+.aev-task-row .t-actions button.reject:hover{background:var(--aev-bad);color:#fff}
+.aev-task-row .t-actions button.assign{color:var(--aev-violet);border-color:var(--aev-violet-bd)}
+.aev-task-row .t-actions button.assign:hover{background:var(--aev-violet);color:#fff}
+
+/* Assign modal */
+.aev-modal-bg{position:fixed;inset:0;background:rgba(15,23,42,.5);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;z-index:1000;padding:20px}
+.aev-modal-bg.show{display:flex;animation:aev-fade-in .2s}
+.aev-modal{background:#fff;border-radius:12px;padding:28px;max-width:460px;width:100%;box-shadow:var(--shadow-lg)}
+.aev-modal h3{margin:0 0 6px;font-size:18px;font-weight:600}
+.aev-modal .sub{font-size:12.5px;color:var(--aev-muted);margin-bottom:18px}
+.aev-modal label{display:block;font-size:11.5px;font-weight:600;color:var(--aev-text-2);text-transform:uppercase;letter-spacing:.06em;margin:14px 0 6px}
+.aev-modal select, .aev-modal textarea, .aev-modal input{width:100%;padding:10px 12px;border:1px solid var(--aev-line);border-radius:8px;font-family:Manrope,sans-serif;font-size:13px;background:#fff;color:var(--aev-text)}
+.aev-modal select:focus, .aev-modal textarea:focus, .aev-modal input:focus{outline:none;border-color:var(--aev-primary);box-shadow:var(--shadow-glow)}
+.aev-modal textarea{min-height:80px;resize:vertical}
+.aev-modal .actions{display:flex;gap:10px;justify-content:flex-end;margin-top:22px}
+.aev-modal .actions button{padding:9px 18px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:1px solid var(--aev-line);background:#fff;color:var(--aev-text-2);transition:all .15s}
+.aev-modal .actions button.primary{background:var(--aev-primary);color:#fff;border-color:var(--aev-primary)}
+.aev-modal .actions button.primary:hover{background:var(--aev-primary-2)}
+
+/* ── Reports Hub ── */
+.aev-reports-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:18px;padding:14px 16px;background:linear-gradient(135deg,#fff,var(--aev-primary-bg));border:1px solid var(--aev-primary-border);border-radius:10px}
+.aev-reports-bar .lbl{font-size:11.5px;color:var(--aev-muted);text-transform:uppercase;letter-spacing:.06em;font-weight:600}
+.aev-reports-bar select{padding:7px 11px;border-radius:8px;border:1px solid var(--aev-line);font-size:12.5px;background:#fff;font-family:Manrope,sans-serif}
+.aev-report-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;margin-bottom:24px}
+.aev-report-card{background:#fff;border:1px solid var(--aev-line);border-radius:10px;padding:16px 18px;transition:all .18s}
+.aev-report-card:hover{border-color:var(--aev-primary-border);box-shadow:var(--shadow-md);transform:translateY(-1px)}
+.aev-report-card .head{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.aev-report-card .head i{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:var(--aev-primary-bg);color:var(--aev-primary-3);font-size:14px;border:1px solid var(--aev-primary-border)}
+.aev-report-card .head h3{margin:0;font-size:14.5px;font-weight:600;letter-spacing:-.01em}
+.aev-report-card .body{font-size:12.5px;color:var(--aev-muted);line-height:1.6;margin-bottom:12px}
+.aev-report-card .actions{display:flex;gap:8px}
+.aev-report-card .actions button{flex:1;padding:7px 10px;border:1px solid var(--aev-line);background:#fff;border-radius:7px;font-size:11.5px;font-weight:500;cursor:pointer;color:var(--aev-text-2);transition:all .15s;display:inline-flex;align-items:center;gap:5px;justify-content:center}
+.aev-report-card .actions button:hover{border-color:var(--aev-primary);color:var(--aev-primary-2)}
+.aev-report-card .actions button.primary{background:var(--aev-primary);color:#fff;border-color:var(--aev-primary)}
+.aev-report-card .actions button.primary:hover{background:var(--aev-primary-2)}
+
+.aev-history-list{margin-top:18px}
+.aev-history-row{display:grid;grid-template-columns:120px 1fr auto;gap:14px;align-items:center;padding:11px 14px;background:#fff;border:1px solid var(--aev-line);border-radius:9px;margin-bottom:8px;font-size:12.5px}
+.aev-history-row .t-time{color:var(--aev-muted);font-family:'JetBrains Mono',monospace;font-size:11px}
+.aev-history-row .t-title{font-weight:500;color:var(--aev-text)}
+.aev-history-row .t-title small{display:block;color:var(--aev-muted);font-size:11px;margin-top:2px;font-weight:400}
+.aev-history-row .t-status{padding:3px 9px;border-radius:9999px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em}
+.aev-history-row .t-status.executed{background:var(--aev-primary-bg);color:var(--aev-primary-3);border:1px solid var(--aev-primary-border)}
+.aev-history-row .t-status.proposed{background:var(--aev-warn-bg);color:#b45309;border:1px solid var(--aev-warn-bd)}
+.aev-history-row .t-status.logged{background:#f1f5f9;color:var(--aev-muted);border:1px solid var(--aev-line)}
+.aev-history-row .t-status.rejected{background:var(--aev-bad-bg);color:var(--aev-bad);border:1px solid var(--aev-bad-bd)}
+
+/* Live module preview area */
+.aev-report-preview{background:#fff;border:1px solid var(--aev-line);border-radius:12px;padding:22px;min-height:200px}
+.aev-report-preview h2{font-size:18px;margin:0 0 12px;font-weight:600;color:var(--aev-text)}
+.aev-report-preview .text{font-size:13px;color:var(--aev-text-2);line-height:1.7;white-space:pre-wrap;font-family:Manrope,sans-serif}
+.aev-report-preview .kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-bottom:18px}
+.aev-report-preview .kpi{padding:14px;border:1px solid var(--aev-line);border-radius:9px;background:linear-gradient(135deg,#fff,#fafbfc)}
+.aev-report-preview .kpi .l{font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--aev-muted);font-weight:600}
+.aev-report-preview .kpi .v{font-size:22px;font-weight:600;color:var(--aev-text);margin-top:4px;letter-spacing:-.02em}
+
 .aev-actions{display:flex;gap:8px;flex-wrap:wrap}
 .aev-btn{padding:9px 14px;border:1px solid var(--aev-line);background:var(--aev-card);color:var(--aev-text);border-radius:var(--radius);font:inherit;font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:8px;font-family:inherit;white-space:nowrap}
 .aev-btn:hover{border-color:var(--aev-primary);color:var(--aev-primary-2);background:var(--aev-primary-bg)}
