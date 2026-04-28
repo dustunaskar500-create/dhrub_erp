@@ -1,0 +1,44 @@
+{
+  "summary": "Comprehensive backend + frontend testing of Aether v2 (PHP/MySQL ERP brain). 29/30 backend tests PASS (1 skipped). All 18 v2 endpoints work. Adaptive schema sync correctly detects table create / column add / column drop / table drop with impact field. Action plan workflow (propose -> approve -> persist; propose -> reject -> not persist) works end-to-end. Self-heal salary mismatch repaired. Audit log captures plan_proposed, plan_executed, plan_rejected, health_run, self_heal events. Knowledge graph search returns matched entities incl. donations table. Frontend dashboard.php loads with auth gate, 8 KPIs, 10 system-health checks, 20 audit events, btn-refresh/sync/heal testids. Floating panel on / opens via launcher, all 3 tabs (Chat/Health/Plans) work, chat replies with intent, plan card with Approve/Reject works, all 6 quick chips trigger replies, Plans tab lists pending plans. Auth gate verified.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/auth/login", "issue": "Non-admin seeded users (accountant@, manager@, hr@, editor@, viewer@dhrubfoundation.org) cannot login with admin123 - their passwords don't match. Could not validate role-based 403 on self_heal for non-admin (test skipped). Recommend seeding a known non-admin password or documenting credentials in /app/memory/test_credentials.md."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "ERP root /", "issues": ["Recharts console warning: width(-1) and height(-1) of chart should be greater than 0 (Donation Trends / Expense Breakdown). Pre-existing ERP issue, not Aether v2."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_aether_v2.py",
+    "/app/test_reports/pytest/aether_v2.xml"
+  ],
+  "action_items": [
+    "(Optional) Seed accountant@dhrubfoundation.org with known password OR document the actual test passwords in /app/memory/test_credentials.md so role-based 403 self_heal test can run.",
+    "(Pre-existing, low priority) Fix Recharts container width on ERP dashboard (Donation Trends + Expense Breakdown) - emits console warnings on width/height(-1)."
+  ],
+  "critical_code_review_comments": [
+    "v2-panel.js had no data-testid on the 6 quick chips (Dashboard/Health/Top donors/Low stock/Forecast/Audit). Added testids aether-v2-chip-{name} for testability.",
+    "approve_plan and reject_plan APIs require body field name 'plan_id' (not 'id'). Header doc in aether.php is correct - just flagging consistency.",
+    "knowledge_search returns key 'matches' (not 'results' or 'entities') - consistent across responses but worth keeping documented.",
+    "schema-watcher returns 'impact' field, not 'impact_level' as the task spec mentioned - actual API field is 'impact' with values like 'critical', 'low'.",
+    "describe endpoint uses raw INFORMATION_SCHEMA column names (COLUMN_NAME, COLUMN_KEY, COLUMN_TYPE) - PK info available via COLUMN_KEY=='PRI'.",
+    "Non-admin seeded users have unknown passwords - prevents validation of role-gated endpoints from a test perspective."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_aether_v2.py",
+    "/app/aether/v2-panel.js"
+  ],
+  "success_rate": {"backend": "97% (29/30, 1 skipped due to missing non-admin creds)", "frontend": "100% (all required UI flows verified)"},
+  "test_credentials": "Admin: sbrata9843@gmail.com / admin123 (super_admin) - confirmed working. Non-admin (accountant/manager/hr/editor/viewer @dhrubfoundation.org) - admin123 does NOT work; login returns 401 'Invalid credentials'.",
+  "seed_data_creation": "Created+approved donation: 'AutoTest Donor' Rs 5000 in donations table (via plan workflow). Created+rejected expense plan for 'stationery' (NOT persisted). Temporarily mutated employee.net_salary=999 then self_heal restored. Created+dropped table aether_test_adapt during adaptive schema test.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend test file at /app/backend/tests/test_aether_v2.py covers all 18 v2 endpoints, adaptive schema diff (CREATE/ALTER/DROP table+column), full action-plan approve+reject workflow, self_heal salary mismatch, audit log shape, knowledge_search, describe, feedback. Run: pytest /app/backend/tests/test_aether_v2.py -v --junitxml=/app/test_reports/pytest/aether_v2.xml. Use email login (NOT username). Plan IDs: API expects 'plan_id' field in approve_plan/reject_plan. Schema sync returns 'changes' array with fields {change_type, object_type, object_name, impact, details}. Knowledge_search returns 'matches' array. Floating panel testids: aether-v2-launcher, aether-v2-panel, aether-v2-tab-{chat|health|plans}, aether-v2-input, aether-v2-send, aether-v2-chip-{dashboard|health|top-donors|low-stock|forecast|audit}.",
+  "rca of the issue": "No critical RCA needed. Single skipped test is due to missing non-admin test credentials (environmental, not a bug). All backend logic and frontend UI verified working."
+}

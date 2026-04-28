@@ -1,0 +1,264 @@
+/* ============================================
+   Dhrub Foundation ERP - Responsive Overrides
+   ============================================ */
+
+/* Mobile-first responsive adjustments for the ERP system */
+
+/* Tablet and below (1024px) */
+@media (max-width: 1024px) {
+    /* Sidebar adjustments */
+    .sidebar,
+    [class*="sidebar"],
+    aside {
+        position: fixed !important;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        z-index: 50;
+        transform: translateX(-100%);
+        transition: transform 0.3s ease;
+    }
+    
+    .sidebar.open,
+    [class*="sidebar"].open,
+    aside.open {
+        transform: translateX(0);
+    }
+    
+    /* Main content full width */
+    main,
+    .main-content,
+    [class*="main"] {
+        margin-left: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+    
+    /* Grid adjustments */
+    .grid-cols-4 {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+    
+    .grid-cols-3 {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+    
+    /* Table responsive */
+    table {
+        display: block;
+        overflow-x: auto;
+        white-space: nowrap;
+    }
+    
+    /* Hide sidebar text, show icons only */
+    .nav-text,
+    [class*="nav-text"] {
+        display: none;
+    }
+}
+
+/* Mobile phones (768px) */
+@media (max-width: 768px) {
+    /* Padding adjustments */
+    .p-6 {
+        padding: 1rem !important;
+    }
+    
+    .p-8 {
+        padding: 1.25rem !important;
+    }
+    
+    .px-6 {
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
+    }
+    
+    .py-8 {
+        padding-top: 1.5rem !important;
+        padding-bottom: 1.5rem !important;
+    }
+    
+    /* Grid single column */
+    .grid-cols-4,
+    .grid-cols-3,
+    .grid-cols-2 {
+        grid-template-columns: 1fr !important;
+    }
+    
+    /* Stat cards stack */
+    .stats-grid,
+    [class*="stats-grid"],
+    .stat-cards {
+        grid-template-columns: 1fr !important;
+    }
+    
+    /* Card adjustments */
+    .card {
+        margin: 0 -0.5rem;
+        border-radius: 0.5rem;
+    }
+    
+    /* Header adjustments */
+    header,
+    .header,
+    [class*="header"] {
+        padding: 0.75rem 1rem !important;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+    
+    /* Form adjustments */
+    .form-group {
+        margin-bottom: 1rem;
+    }
+    
+    input,
+    select,
+    textarea {
+        font-size: 16px !important; /* Prevents iOS zoom */
+    }
+    
+    /* Button adjustments */
+    .btn,
+    button {
+        padding: 0.75rem 1rem;
+        font-size: 0.875rem;
+    }
+    
+    /* Modal adjustments */
+    .modal,
+    [class*="modal"],
+    [role="dialog"] {
+        width: 95% !important;
+        max-width: 95% !important;
+        margin: 1rem !important;
+    }
+    
+    /* Text size adjustments */
+    .text-2xl {
+        font-size: 1.25rem !important;
+    }
+    
+    .text-3xl {
+        font-size: 1.5rem !important;
+    }
+    
+    .text-4xl {
+        font-size: 1.75rem !important;
+    }
+    
+    /* Hide non-essential elements */
+    .hide-mobile,
+    [class*="hide-mobile"] {
+        display: none !important;
+    }
+}
+
+/* Small phones (480px) */
+@media (max-width: 480px) {
+    /* Further padding reduction */
+    .p-4 {
+        padding: 0.75rem !important;
+    }
+    
+    .p-6,
+    .p-8 {
+        padding: 1rem !important;
+    }
+    
+    /* Gap adjustments */
+    .gap-4 {
+        gap: 0.75rem !important;
+    }
+    
+    .gap-6 {
+        gap: 1rem !important;
+    }
+    
+    /* Stack flex items */
+    .flex-row {
+        flex-direction: column !important;
+    }
+    
+    .flex.gap-4 {
+        flex-direction: column;
+        gap: 0.75rem !important;
+    }
+    
+    /* Action buttons stack */
+    .action-buttons,
+    .btn-group,
+    [class*="action-buttons"] {
+        flex-direction: column;
+        width: 100%;
+    }
+    
+    .action-buttons .btn,
+    .btn-group .btn {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+/* Mobile menu toggle button */
+.mobile-menu-toggle {
+    display: none;
+    position: fixed;
+    bottom: 1rem;
+    right: 1rem;
+    width: 56px;
+    height: 56px;
+    background: hsl(var(--primary));
+    color: white;
+    border: none;
+    border-radius: 50%;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 60;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+.mobile-menu-toggle:hover {
+    transform: scale(1.05);
+}
+
+@media (max-width: 1024px) {
+    .mobile-menu-toggle {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+}
+
+/* Overlay for mobile sidebar */
+.mobile-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 40;
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.mobile-overlay.active {
+    display: block;
+    opacity: 1;
+}
+
+/* Print styles */
+@media print {
+    .sidebar,
+    aside,
+    .mobile-menu-toggle,
+    .no-print {
+        display: none !important;
+    }
+    
+    main,
+    .main-content {
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+    }
+}

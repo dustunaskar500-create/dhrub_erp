@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Content Management - Dhrub Foundation ERP</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <script src="https://cdn.tiny.cloud/1/no-api-key/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
+    <link rel="stylesheet" href="css/cms.css">
+</head>
+<body>
+    <div class="app-wrapper">
+        <!-- Sidebar -->
+        <aside class="cms-sidebar">
+            <div class="sidebar-header">
+                <a href="../" class="logo-link">
+                    <img src="../logo.png" alt="Logo" class="logo" onerror="this.style.display='none'">
+                    <div class="logo-text">
+                        <span class="brand">Dhrub Foundation</span>
+                        <span class="subtitle">Content Manager</span>
+                    </div>
+                </a>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <div class="nav-section">
+                    <span class="nav-section-title">Content</span>
+                    <a href="#" class="nav-item active" data-section="blog">
+                        <i class="fas fa-newspaper"></i>
+                        <span>Blog Posts</span>
+                    </a>
+                    <a href="#" class="nav-item" data-section="stories">
+                        <i class="fas fa-heart"></i>
+                        <span>Success Stories</span>
+                    </a>
+                    <a href="#" class="nav-item" data-section="media">
+                        <i class="fas fa-images"></i>
+                        <span>Media Library</span>
+                    </a>
+                </div>
+                
+                <div class="nav-section">
+                    <span class="nav-section-title">Quick Links</span>
+                    <a href="../" class="nav-item">
+                        <i class="fas fa-tachometer-alt"></i>
+                        <span>ERP Dashboard</span>
+                    </a>
+                </div>
+            </nav>
+            
+            <div class="sidebar-footer">
+                <a href="../" class="back-btn">
+                    <i class="fas fa-arrow-left"></i>
+                    <span>Back to ERP</span>
+                </a>
+            </div>
+        </aside>
+        
+        <!-- Main Content -->
+        <main class="cms-main">
+            <!-- Header -->
+            <header class="cms-header">
+                <div class="header-left">
+                    <button class="mobile-menu-btn" onclick="toggleSidebar()">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <h1 id="page-title">Blog Posts</h1>
+                </div>
+                <div class="header-right">
+                    <button class="btn btn-primary" id="new-item-btn" onclick="openModal()">
+                        <i class="fas fa-plus"></i>
+                        <span>New Post</span>
+                    </button>
+                </div>
+            </header>
+            
+            <!-- Alert Container -->
+            <div id="alert-container"></div>
+            
+            <!-- Blog Section -->
+            <section id="blog-section" class="content-section">
+                <div class="section-header">
+                    <div class="search-box">
+                        <i class="fas fa-search"></i>
+                        <input type="text" placeholder="Search posts..." id="blog-search" onkeyup="filterItems('blog')">
+                    </div>
+                    <div class="filter-group">
+                        <select id="blog-filter-category" onchange="filterItems('blog')">
+                            <option value="">All Categories</option>
+                            <option value="News">News</option>
+                            <option value="Events">Events</option>
+                            <option value="Stories">Stories</option>
+                            <option value="Annual Report">Annual Report</option>
+                            <option value="Programs">Programs</option>
+                        </select>
+                        <select id="blog-filter-status" onchange="filterItems('blog')">
+                            <option value="">All Status</option>
+                            <option value="1">Published</option>
+                            <option value="0">Draft</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="items-grid" id="blog-grid">
+                    <div class="loading-state">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <p>Loading blog posts...</p>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Stories Section -->
+            <section id="stories-section" class="content-section hidden">
+                <div class="section-header">
+                    <div class="search-box">
+                        <i class="fas fa-search"></i>
+                        <input type="text" placeholder="Search stories..." id="stories-search" onkeyup="filterItems('stories')">
+                    </div>
+                    <div class="filter-group">
+                        <select id="stories-filter-program" onchange="filterItems('stories')">
+                            <option value="">All Programs</option>
+                        </select>
+                        <select id="stories-filter-status" onchange="filterItems('stories')">
+                            <option value="">All Status</option>
+                            <option value="1">Published</option>
+                            <option value="0">Draft</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="items-grid" id="stories-grid">
+                    <div class="loading-state">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <p>Loading success stories...</p>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Media Section -->
+            <section id="media-section" class="content-section hidden">
+                <div class="section-header">
+                    <div class="search-box">
+                        <i class="fas fa-search"></i>
+                        <input type="text" placeholder="Search media..." id="media-search" onkeyup="filterMedia()">
+                    </div>
+                    <div class="upload-zone" id="upload-zone">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <p>Drag & drop images here or <label for="file-input" class="upload-link">browse</label></p>
+                        <input type="file" id="file-input" accept="image/*" multiple onchange="handleFileUpload(event)" style="display:none">
+                    </div>
+                </div>
+                
+                <div class="media-grid" id="media-grid">
+                    <div class="loading-state">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <p>Loading media...</p>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+    
+    <!-- Blog/Story Modal -->
+    <div id="item-modal" class="modal-overlay">
+        <div class="modal modal-large">
+            <div class="modal-header">
+                <h2 id="modal-title">New Blog Post</h2>
+                <button class="modal-close" onclick="closeModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <form id="item-form" onsubmit="saveItem(event)">
+                <div class="modal-body">
+                    <input type="hidden" id="item-id">
+                    <input type="hidden" id="item-type" value="blog">
+                    
+                    <!-- Common Fields -->
+                    <div class="form-row">
+                        <div class="form-group flex-2">
+                            <label class="form-label">Title <span class="required">*</span></label>
+                            <input type="text" id="item-title" class="form-input" required placeholder="Enter title...">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Status</label>
+                            <select id="item-status" class="form-select">
+                                <option value="0">Draft</option>
+                                <option value="1">Published</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <!-- Blog-specific fields -->
+                    <div id="blog-fields">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Category</label>
+                                <select id="blog-category" class="form-select">
+                                    <option value="News">News</option>
+                                    <option value="Events">Events</option>
+                                    <option value="Stories">Stories</option>
+                                    <option value="Annual Report">Annual Report</option>
+                                    <option value="Programs">Programs</option>
+                                </select>
+                            </div>
+                            <div class="form-group flex-2">
+                                <label class="form-label">Excerpt</label>
+                                <input type="text" id="blog-excerpt" class="form-input" placeholder="Brief summary...">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Story-specific fields -->
+                    <div id="story-fields" class="hidden">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Beneficiary Name</label>
+                                <input type="text" id="story-beneficiary" class="form-input" placeholder="Name...">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Age</label>
+                                <input type="number" id="story-age" class="form-input" min="1" max="100" placeholder="Age">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Program</label>
+                                <select id="story-program" class="form-select">
+                                    <option value="">-- Select --</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Featured Image -->
+                    <div class="form-group">
+                        <label class="form-label">Featured Image</label>
+                        <div class="image-picker">
+                            <div class="image-preview" id="image-preview">
+                                <i class="fas fa-image"></i>
+                                <span>No image selected</span>
+                            </div>
+                            <div class="image-actions">
+                                <button type="button" class="btn btn-outline btn-sm" onclick="openMediaPicker()">
+                                    <i class="fas fa-images"></i> Choose from Media
+                                </button>
+                                <button type="button" class="btn btn-outline btn-sm" onclick="document.getElementById('direct-image-input').click()">
+                                    <i class="fas fa-upload"></i> Upload New
+                                </button>
+                                <input type="file" id="direct-image-input" accept="image/*" onchange="handleDirectUpload(event)" style="display:none">
+                            </div>
+                            <input type="hidden" id="item-image">
+                        </div>
+                    </div>
+                    
+                    <!-- Content Editor -->
+                    <div class="form-group">
+                        <label class="form-label">Content <span class="required">*</span></label>
+                        <textarea id="item-content" class="tinymce-editor"></textarea>
+                    </div>
+                </div>
+                
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" onclick="closeModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Save
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Media Picker Modal -->
+    <div id="media-picker-modal" class="modal-overlay">
+        <div class="modal modal-large">
+            <div class="modal-header">
+                <h2>Select Image</h2>
+                <button class="modal-close" onclick="closeMediaPicker()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="media-picker-upload">
+                    <label for="picker-file-input" class="upload-btn">
+                        <i class="fas fa-cloud-upload-alt"></i> Upload New Image
+                    </label>
+                    <input type="file" id="picker-file-input" accept="image/*" onchange="handlePickerUpload(event)" style="display:none">
+                </div>
+                <div class="media-picker-grid" id="media-picker-grid">
+                    <div class="loading-state">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <p>Loading media...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Delete Confirmation Modal -->
+    <div id="delete-modal" class="modal-overlay">
+        <div class="modal modal-small">
+            <div class="modal-header">
+                <h2>Confirm Delete</h2>
+                <button class="modal-close" onclick="closeDeleteModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p class="delete-message">Are you sure you want to delete this item? This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" onclick="closeDeleteModal()">Cancel</button>
+                <button type="button" class="btn btn-danger" onclick="confirmDelete()">
+                    <i class="fas fa-trash"></i> Delete
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <script src="js/cms.js"></script>
+</body>
+</html>

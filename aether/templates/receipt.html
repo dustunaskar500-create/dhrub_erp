@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Dhrub Foundation - Donation Receipt</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; color: #333; line-height: 1.6; }
+        h1 { color: #10b981; text-align: center; margin: 0 0 4px; }
+        h2 { text-align: center; margin: 0 0 10px; font-weight: normal; color: #444; }
+        .header { text-align: center; margin-bottom: 30px; border-bottom: 3px solid #10b981; padding-bottom: 15px; }
+        .info { margin: 20px 0; }
+        .info p { margin: 6px 0; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { border: 1px solid #ccc; padding: 12px; text-align: left; }
+        th { background-color: #f1f5f9; width: 40%; font-weight: bold; }
+        .amount { font-size: 1.4em; font-weight: bold; color: #10b981; }
+        .thankyou { text-align: center; margin: 40px 0; font-size: 1.2em; color: #10b981; font-weight: bold; }
+        .footer { margin-top: 50px; text-align: center; font-size: 0.9em; color: #666; border-top: 1px solid #ddd; padding-top: 15px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Dhrub Foundation</h1>
+        <h2>Official Donation Receipt</h2>
+    </div>
+
+    <div class="info">
+        <p><strong>Receipt No:</strong> {{RECEIPT_NO}}</p>
+        <p><strong>Date:</strong> {{DATE}}</p>
+        <p><strong>Donor Name:</strong> {{DONOR_NAME}}</p>
+        <p><strong>Donor Email:</strong> {{DONOR_EMAIL}}</p>
+        <p><strong>Donor Phone:</strong> {{DONOR_PHONE}}</p>
+    </div>
+
+    <table>
+        <tr><th>Particulars</th><th>Details</th></tr>
+        <tr>
+            <td>Donation Amount</td>
+            <td class="amount">₹ {{AMOUNT}}</td>
+        </tr>
+        <tr>
+            <td>Payment Method</td>
+            <td>{{PAYMENT_METHOD}}</td>
+        </tr>
+        <tr>
+            <td>Transaction / Reference ID</td>
+            <td>{{TRANSACTION_ID}}</td>
+        </tr>
+        <tr>
+            <td>Program / Purpose</td>
+            <td>{{PROGRAM_NAME}}</td>
+        </tr>
+    </table>
+
+    <div class="thankyou">
+        Thank you for your generous contribution!<br>
+        Your support helps us make a real difference.
+    </div>
+
+    <div class="footer">
+        <p>This is a computer-generated receipt and does not require a physical signature.</p>
+        <p>Dhrub Foundation &bull; Reg. No: (Your Registration Number)</p>
+        <p>Generated on: {{DATE}}</p>
+    </div>
+</body>
+</html>
