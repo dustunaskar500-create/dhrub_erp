@@ -158,6 +158,34 @@ function aether_run_migrations(?PDO $db = null): array {
         }
     }
 
+    // pending intents table (multi-turn conversations)
+    try {
+        require_once __DIR__ . '/pending-intents.php';
+        AetherPendingIntents::ensureTable($db);
+    } catch (\Throwable $e) {}
+
+    // CSV import job table
+    try {
+        $db->exec(
+            "CREATE TABLE IF NOT EXISTS aether_csv_imports (
+                id           INT AUTO_INCREMENT PRIMARY KEY,
+                user_id      INT NOT NULL,
+                module       VARCHAR(64) NOT NULL,
+                filename     VARCHAR(200),
+                rows_total   INT DEFAULT 0,
+                rows_ok      INT DEFAULT 0,
+                rows_failed  INT DEFAULT 0,
+                payload_json LONGTEXT,
+                preview_json LONGTEXT,
+                errors_json  LONGTEXT,
+                status       ENUM('preview','approved','executed','rejected','failed') DEFAULT 'preview',
+                created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                executed_at  TIMESTAMP NULL,
+                INDEX (user_id, status)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+        );
+    } catch (\Throwable $e) {}
+
     return $created;
 }
 

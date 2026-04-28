@@ -14,20 +14,101 @@
 require_once __DIR__ . '/bootstrap.php';
 require_once __DIR__ . '/nlp-engine.php';
 require_once __DIR__ . '/audit-log.php';
+require_once __DIR__ . '/pending-intents.php';
 
 class AetherReasoner
 {
     private PDO $db;
     private array $user;
+    private string $convId = 'default';
+
+    /** Slot definitions per intent — see fillSlots() */
+    private const SLOT_DEFS = [
+        'record_donation' => [
+            ['name'=>'amount','prompt'=>'How much was the donation? (e.g. *₹5000*)','validate'=>'amount'],
+            ['name'=>'donor', 'prompt'=>'Who is the donor? Wrap their name in quotes — e.g. *"Jane Doe"*','validate'=>'name'],
+        ],
+        'create_donor' => [
+            ['name'=>'donor','prompt'=>'What is the donor\'s name? Wrap it in quotes — e.g. *"Jane Doe"*','validate'=>'name'],
+        ],
+        'create_expense' => [
+            ['name'=>'amount','prompt'=>'How much was the expense? (e.g. *₹2500*)','validate'=>'amount'],
+        ],
+        'update_salary' => [
+            ['name'=>'employee','prompt'=>'Whose salary? Wrap the employee name in quotes — e.g. *"Anita Sharma"*','validate'=>'name'],
+            ['name'=>'amount','prompt'=>'What is the new basic salary? (e.g. *₹45000*)','validate'=>'amount'],
+        ],
+        'create_volunteer' => [
+            ['name'=>'volunteer','prompt'=>'What is the volunteer\'s name? Wrap it in quotes.','validate'=>'name'],
+        ],
+        'add_inventory_item' => [
+            ['name'=>'item','prompt'=>'What is the item name? Wrap it in quotes — e.g. *"A4 Notebooks"*','validate'=>'name'],
+            ['name'=>'qty','prompt'=>'Initial quantity? (e.g. *100*)','validate'=>'number'],
+        ],
+        'adjust_inventory' => [
+            ['name'=>'item','prompt'=>'Which item? Wrap the name in quotes.','validate'=>'name'],
+            ['name'=>'qty','prompt'=>'By how much (e.g. *+50*, *-10*)?','validate'=>'signed'],
+        ],
+        'create_program' => [
+            ['name'=>'program','prompt'=>'What\'s the program name? Wrap it in quotes.','validate'=>'name'],
+        ],
+        'create_blog_post' => [
+            ['name'=>'title','prompt'=>'What\'s the post title? Wrap it in quotes.','validate'=>'name'],
+        ],
+        'send_message' => [
+            ['name'=>'recipient','prompt'=>'Who should receive it? Paste an email or phone number.','validate'=>'contact'],
+            ['name'=>'body','prompt'=>'What should I say? Type the message body.','validate'=>'any'],
+        ],
+        'approve_expense' => [
+            ['name'=>'id','prompt'=>'Which expense? Tell me the ID — e.g. *#42*.','validate'=>'number'],
+        ],
+        'impact_report' => [
+            ['name'=>'top_n','prompt'=>'How many top donors? (default *50*) Type a number.','validate'=>'number'],
+            ['name'=>'fy','prompt'=>'For which fiscal year? (e.g. *2024-2025* or *last_12_months*)','validate'=>'any'],
+        ],
+        'csv_import' => [
+            ['name'=>'module','prompt'=>'Which module? Reply with one of: *donors* / *donations* / *expenses* / *employees* / *volunteers* / *inventory*','validate'=>'any'],
+        ],
+    ];
 
     public function __construct(array $user, ?PDO $db = null) {
         $this->db = $db ?: aether_db();
         $this->user = $user;
     }
 
+    public function setConversation(string $convId): void {
+        $this->convId = $convId ?: 'default';
+    }
+
     public function reason(string $message): array {
+        // 1. Active pending intent? Try to fill the next slot.
+        $pending = AetherPendingIntents::open((int)$this->user['id'], $this->convId);
+        if ($pending) {
+            // user can cancel anytime
+            if (preg_match('/^(cancel|abort|never\s*mind|forget\s*it)$/i', trim($message))) {
+                AetherPendingIntents::close((int)$pending['id'], 'cancelled');
+                return ['intent'=>'cancelled','confidence'=>1,'entities'=>[],'mode'=>'answer',
+                        'reply'=>'Cancelled. What else can I do?','cards'=>[],'plan'=>null,'kg_matches'=>[]];
+            }
+            $resumed = $this->resumePending($pending, $message);
+            if ($resumed) {
+                // resumed is a planner-shape array: ['text'=>..., 'plan'=>..., 'mode'=>..., 'cards'=>...]
+                return [
+                    'intent'      => $pending['intent'],
+                    'confidence'  => 1,
+                    'entities'    => [],
+                    'reply'       => $resumed['text'] ?? '',
+                    'cards'       => $resumed['cards'] ?? [],
+                    'plan'        => $resumed['plan'] ?? null,
+                    'mode'        => $resumed['mode'] ?? 'answer',
+                    'kg_matches'  => [],
+                ];
+            }
+        }
+
         $nlp = new AetherNLP($this->db);
         $analysis = $nlp->analyze($message);
+
         $intent = $analysis['intent'];
         $confidence = $analysis['confidence'];
         $entities = $analysis['entities'];
@@ -51,17 +132,22 @@ class AetherReasoner
             'module_report'    => $this->reModuleReport($message, $analysis, $entities),
             'suggest_caption'  => $this->reSuggestCaption($message, $entities),
             'suggest_blog'     => $this->reSuggestBlog($message, $entities),
-            'record_donation'  => $this->planDonation($entities, $message),
-            'create_expense'   => $this->planExpense($entities, $message),
-            'update_salary'    => $this->planSalaryUpdate($entities, $message),
-            'create_donor'     => $this->planCreateDonor($entities, $message),
-            'create_volunteer' => $this->planCreateVolunteer($entities, $message),
-            'approve_expense'  => $this->planApproveExpense($entities, $message),
-            'adjust_inventory' => $this->planAdjustInventory($entities, $message),
-            'add_inventory_item' => $this->planAddInventoryItem($entities, $message),
-            'create_program'   => $this->planCreateProgram($entities, $message),
-            'create_blog_post' => $this->planCreateBlogPost($entities, $message),
-            'send_message'     => $this->planSendMessage($entities, $message),
+            'record_donation'  => $this->planWithSlots('record_donation', $entities, $message),
+            'create_expense'   => $this->planWithSlots('create_expense', $entities, $message),
+            'update_salary'    => $this->planWithSlots('update_salary', $entities, $message),
+            'create_donor'     => $this->planWithSlots('create_donor', $entities, $message),
+            'create_volunteer' => $this->planWithSlots('create_volunteer', $entities, $message),
+            'approve_expense'  => $this->planWithSlots('approve_expense', $entities, $message),
+            'adjust_inventory' => $this->planWithSlots('adjust_inventory', $entities, $message),
+            'add_inventory_item' => $this->planWithSlots('add_inventory_item', $entities, $message),
+            'create_program'   => $this->planWithSlots('create_program', $entities, $message),
+            'create_blog_post' => $this->planWithSlots('create_blog_post', $entities, $message),
+            'send_message'     => $this->planWithSlots('send_message', $entities, $message),
+            'impact_report'    => $this->planWithSlots('impact_report', $entities, $message),
+            'csv_import'       => $this->planWithSlots('csv_import', $entities, $message),
+            'csv_template'     => $this->reCsvTemplate($message),
+            'donation_reminders' => $this->reDonationReminders(),
+            'my_tasks'         => $this->reMyTasks(),
             default            => $this->fallback($message, $analysis),
         };
 
@@ -788,6 +874,14 @@ class AetherReasoner
             );
             return ['email' => $sent['email'] ?? false, 'sms' => $sent['sms'] ?? false];
         }
+        if ($plan['kind'] === 'impact_report') {
+            require_once __DIR__ . '/impact-report.php';
+            return AetherImpactReport::execute($this->user, $plan);
+        }
+        if ($plan['kind'] === 'reminders_dispatch') {
+            require_once __DIR__ . '/reminders.php';
+            return AetherReminders::execute($this->user, $plan);
+        }
         throw new \RuntimeException('Unknown plan kind: ' . ($plan['kind'] ?? '?'));
     }
 
@@ -831,4 +925,207 @@ class AetherReasoner
         foreach ($cats as $c) if (str_contains($low, $c)) return $c;
         return null;
     }
+
+    /* =====================================================================
+     *  MULTI-TURN SLOT FILLING
+     * ===================================================================== */
+
+    /**
+     * Called from reason() when an open pending intent exists.
+     * Validates the latest user input, fills the next slot, and either:
+     *   • re-asks if invalid
+     *   • asks for the next missing slot
+     *   • re-invokes the planner with all slots collected
+     */
+    private function resumePending(array $pending, string $message): ?array {
+        $intent = $pending['intent'];
+        $slots  = $pending['slots'];
+        $missing = $pending['missing'];
+        if (!$missing) {
+            AetherPendingIntents::close((int)$pending['id'], 'done');
+            return null;
+        }
+        $next = $missing[0];
+        $val = $this->parseSlot($next['validate'] ?? 'any', $message);
+        if ($val === null) {
+            return ['text' => "I didn't catch that. " . ($next['prompt'] ?? 'Please try again.') . "\n\n_Type *cancel* to abort._",
+                    'mode' => 'answer'];
+        }
+        $slots[$next['name']] = $val;
+        array_shift($missing);
+        if ($missing) {
+            AetherPendingIntents::save((int)$this->user['id'], $this->convId, $intent, $slots, $missing);
+            $nx = $missing[0];
+            return ['text' => "Got it ✓. " . ($nx['prompt'] ?? 'What\'s next?') . "\n\n_Type *cancel* to abort._",
+                    'mode' => 'answer'];
+        }
+        AetherPendingIntents::close((int)$pending['id'], 'done');
+        // All slots collected — synthesise a virtual message + entities and call the original planner
+        return $this->dispatchWithSlots($intent, $slots, $message);
+    }
+
+    /**
+     * Slot-aware planner entrypoint — used both by resumePending() and by the
+     * primary `reason()` branches when a planner detects missing slots.
+     */
+    private function planWithSlots(string $intent, array $entities, string $message): array {
+        $defs = self::SLOT_DEFS[$intent] ?? [];
+        $slots = $this->extractSlotsFromEntities($intent, $entities, $message);
+        $missing = [];
+        foreach ($defs as $d) {
+            if (!isset($slots[$d['name']]) || $slots[$d['name']] === null || $slots[$d['name']] === '') $missing[] = $d;
+        }
+        if ($missing) {
+            // start (or update) a pending intent
+            AetherPendingIntents::save((int)$this->user['id'], $this->convId, $intent, $slots, $missing);
+            $nx = $missing[0];
+            return ['text' => "👋 I can help with that. " . ($nx['prompt'] ?? '') . "\n\n_Type *cancel* anytime to abort._",
+                    'mode' => 'answer'];
+        }
+        return $this->dispatchWithSlots($intent, $slots, $message);
+    }
+
+    /** Once all slots are collected, build the plan via the original planner. */
+    private function dispatchWithSlots(string $intent, array $slots, string $message): array {
+        // Synthesise a representative message + entities so the existing planners can run
+        $entities = $this->slotsToEntities($slots);
+        $synth = $this->slotsToMessage($intent, $slots);
+        return match ($intent) {
+            'record_donation'    => $this->planDonation($entities, $synth),
+            'create_donor'       => $this->planCreateDonor($entities, $synth),
+            'create_expense'     => $this->planExpense($entities, $synth),
+            'update_salary'      => $this->planSalaryUpdate($entities, $synth),
+            'create_volunteer'   => $this->planCreateVolunteer($entities, $synth),
+            'add_inventory_item' => $this->planAddInventoryItem($entities, $synth),
+            'adjust_inventory'   => $this->planAdjustInventory($entities, $synth),
+            'create_program'     => $this->planCreateProgram($entities, $synth),
+            'create_blog_post'   => $this->planCreateBlogPost($entities, $synth),
+            'send_message'       => $this->planSendMessage($entities, $synth),
+            'approve_expense'    => $this->planApproveExpense($entities, $synth),
+            'impact_report'      => $this->planImpactReport($slots),
+            'csv_import'         => $this->planCsvImportPick($slots),
+            default              => ['text' => 'Slots collected, but I don\'t know how to plan ' . $intent . '.'],
+        };
+    }
+
+    private function extractSlotsFromEntities(string $intent, array $entities, string $message): array {
+        $slots = [];
+        $defs = self::SLOT_DEFS[$intent] ?? [];
+        foreach ($defs as $d) {
+            switch ($d['name']) {
+                case 'amount':     if (!empty($entities['amount']))  $slots['amount'] = $entities['amount'][0]; break;
+                case 'qty':        if (!empty($entities['number']))  $slots['qty'] = $entities['number'][0]; break;
+                case 'donor':      if (!empty($entities['quoted'])) { $slots['donor'] = $entities['quoted'][0]; }
+                                   elseif ($g = $this->guessDonorName($message)) $slots['donor'] = $g; break;
+                case 'employee':
+                case 'volunteer':
+                case 'item':
+                case 'program':
+                case 'title':      if (!empty($entities['quoted'])) $slots[$d['name']] = $entities['quoted'][0]; break;
+                case 'recipient':  if (!empty($entities['email']))  $slots['recipient'] = $entities['email'][0];
+                                   elseif (!empty($entities['phone']))$slots['recipient'] = $entities['phone'][0]; break;
+                case 'body':       if (!empty($entities['quoted'])) $slots['body'] = implode("\n\n", $entities['quoted']); break;
+                case 'id':         if (!empty($entities['number'])) $slots['id'] = $entities['number'][0]; break;
+                case 'top_n':      if (!empty($entities['number'])) $slots['top_n'] = $entities['number'][0]; break;
+                case 'fy':
+                case 'module':     break; // no entity heuristic; user will type plain text
+            }
+        }
+        if (!empty($entities['email'])) $slots['email'] = $entities['email'][0];
+        if (!empty($entities['phone'])) $slots['phone'] = $entities['phone'][0];
+        return $slots;
+    }
+
+    private function slotsToEntities(array $slots): array {
+        $e = [];
+        if (!empty($slots['amount'])) $e['amount'] = [$slots['amount']];
+        if (!empty($slots['qty']))    $e['number'] = [$slots['qty']];
+        if (!empty($slots['id']))     $e['number'] = [$slots['id']];
+        if (!empty($slots['top_n']))  $e['number'] = [$slots['top_n']];
+        $names = array_filter([$slots['donor']??null,$slots['employee']??null,$slots['volunteer']??null,$slots['item']??null,$slots['program']??null,$slots['title']??null]);
+        if ($names) $e['quoted'] = array_values($names);
+        if (!empty($slots['email'])) $e['email'] = [$slots['email']];
+        if (!empty($slots['phone'])) $e['phone'] = [$slots['phone']];
+        if (!empty($slots['recipient'])) {
+            $r = $slots['recipient'];
+            if (str_contains($r,'@')) $e['email'][] = $r; else $e['phone'][] = $r;
+        }
+        if (!empty($slots['body'])) $e['quoted'][] = $slots['body'];
+        return $e;
+    }
+
+    private function slotsToMessage(string $intent, array $slots): string {
+        // Reconstruct a plausible original message so heuristic guesses work
+        $bits = [$intent];
+        foreach ($slots as $k => $v) $bits[] = "$k=$v";
+        return implode(' ', $bits);
+    }
+
+    /** Coerce raw user input into a typed value based on the validator. */
+    private function parseSlot(string $kind, string $msg): mixed {
+        $msg = trim($msg);
+        if ($msg === '') return null;
+        switch ($kind) {
+            case 'amount':
+                if (preg_match('/(\d[\d,]*(?:\.\d+)?)/', $msg, $m)) return (float)str_replace(',', '', $m[1]);
+                return null;
+            case 'number':
+                if (preg_match('/(\d+)/', $msg, $m)) return (int)$m[1];
+                return null;
+            case 'signed':
+                if (preg_match('/([+-]?\s*\d+)/', $msg, $m)) return (int)preg_replace('/\s+/', '', $m[1]);
+                return null;
+            case 'name':
+                if (preg_match('/"([^"]+)"/', $msg, $m)) return trim($m[1]);
+                $clean = trim($msg);
+                return ($clean !== '' && strlen($clean) <= 120) ? $clean : null;
+            case 'contact':
+                if (preg_match('/[\w._-]+@[\w.-]+\.[a-z]{2,}/i', $msg, $m)) return $m[0];
+                if (preg_match('/\b(?:\+91[- ]?)?[6-9]\d{9}\b|\b\d{10}\b/', $msg, $m)) return $m[0];
+                return null;
+            case 'any':
+            default:
+                return $msg;
+        }
+    }
+
+    /* ---- Bridge planners for impact reports + CSV ---- */
+    private function planImpactReport(array $slots): array {
+        require_once __DIR__ . '/impact-report.php';
+        $topN = (int)($slots['top_n'] ?? 50);
+        $fy   = (string)($slots['fy'] ?? 'last_12_months');
+        return AetherImpactReport::propose($this->user, $topN, $fy);
+    }
+
+    private function planCsvImportPick(array $slots): array {
+        require_once __DIR__ . '/csv-importer.php';
+        $module = strtolower(trim($slots['module'] ?? ''));
+        return AetherCsvImporter::onboard($this->user, $module);
+    }
+
+    private function reCsvTemplate(string $message): array {
+        require_once __DIR__ . '/csv-importer.php';
+        $modules = ['donors','donations','expenses','employees','volunteers','inventory','programs'];
+        $picked = null;
+        $low = strtolower($message);
+        foreach ($modules as $m) if (str_contains($low, rtrim($m, 's')) || str_contains($low, $m)) { $picked = $m; break; }
+        if (!$picked) {
+            return ['text' => "Pick a module — try `sample csv for donors` (or donations / expenses / employees / volunteers / inventory / programs)."];
+        }
+        $url = '/aetherV2/api/aether.php?action=csv_template&module=' . urlencode($picked);
+        $cols = AetherCsvImporter::headers($picked);
+        $lines = ["**CSV template — `$picked`**", "", "Click here to download a ready-to-fill sample:", "", "👉 [`download $picked.csv`]($url)", "", "Required columns:", "", '`' . implode('` · `', $cols) . '`', "", "Once filled, just say *import csv* and I'll walk you through the upload, preview the data, and bulk-import on your approval."];
+        return ['text' => implode("\n", $lines)];
+    }
+
+    private function reDonationReminders(): array {
+        require_once __DIR__ . '/reminders.php';
+        return AetherReminders::propose($this->user);
+    }
+
+    private function reMyTasks(): array {
+        require_once __DIR__ . '/my-tasks.php';
+        return AetherMyTasks::for_($this->user);
+    }
 }
+

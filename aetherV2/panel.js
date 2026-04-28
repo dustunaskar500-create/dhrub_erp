@@ -94,6 +94,7 @@
       </div>
       <div class="aev-tabs">
         <button class="aev-tab active" data-pane="chat" data-testid="aether-v2-tab-chat"><i class="fa-solid fa-comments"></i>Chat</button>
+        <button class="aev-tab" data-pane="tasks" data-testid="aether-v2-tab-tasks"><i class="fa-solid fa-list-check"></i>Tasks</button>
         <button class="aev-tab" data-pane="reports" data-testid="aether-v2-tab-reports"><i class="fa-solid fa-chart-pie"></i>Reports</button>
         <button class="aev-tab" data-pane="health" data-testid="aether-v2-tab-health"><i class="fa-solid fa-heart-pulse"></i>Health</button>
         <button class="aev-tab" data-pane="plans" data-testid="aether-v2-tab-plans"><i class="fa-solid fa-clipboard-check"></i>Plans</button>
@@ -102,16 +103,17 @@
         <div class="aev-pane active" data-pane="chat">
           <div class="aev-body" id="aev-body" data-testid="aether-v2-body"></div>
         </div>
+        <div class="aev-pane" data-pane="tasks" id="aev-tasks-pane"><div class="aev-empty">Loading…</div></div>
         <div class="aev-pane" data-pane="reports" id="aev-reports-pane"><div class="aev-empty">Loading…</div></div>
         <div class="aev-pane" data-pane="health" id="aev-health-pane"><div class="aev-empty">Loading…</div></div>
         <div class="aev-pane" data-pane="plans"  id="aev-plans-pane"><div class="aev-empty">Loading…</div></div>
       </div>
       <div class="aev-quick" id="aev-quick">
-        <button data-q="show dashboard" data-testid="aether-v2-chip-dashboard"><i class="fa-solid fa-gauge"></i>Dashboard</button>
+        <button data-q="my tasks" data-testid="aether-v2-chip-tasks"><i class="fa-solid fa-list-check"></i>My tasks</button>
         <button data-q="report on donations this quarter" data-testid="aether-v2-chip-report"><i class="fa-solid fa-chart-pie"></i>Report</button>
-        <button data-q="top donors" data-testid="aether-v2-chip-top-donors"><i class="fa-solid fa-star"></i>Top donors</button>
-        <button data-q="low stock" data-testid="aether-v2-chip-low-stock"><i class="fa-solid fa-box"></i>Low stock</button>
-        <button data-q="forecast donations" data-testid="aether-v2-chip-forecast"><i class="fa-solid fa-chart-line"></i>Forecast</button>
+        <button data-q="donation reminders" data-testid="aether-v2-chip-reminders"><i class="fa-solid fa-bell"></i>Reminders</button>
+        <button data-q="impact report" data-testid="aether-v2-chip-impact"><i class="fa-solid fa-award"></i>Impact</button>
+        <button data-q="import csv for donors" data-testid="aether-v2-chip-csv"><i class="fa-solid fa-file-csv"></i>Import CSV</button>
         <button data-q="health status" data-testid="aether-v2-chip-health"><i class="fa-solid fa-heart-pulse"></i>Health</button>
       </div>
       <div class="aev-attached" id="aev-attached">
@@ -120,8 +122,8 @@
         <button id="aev-attached-clear" title="Remove"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <div class="aev-input">
-        <button class="attach" id="aev-attach" title="Attach image" data-testid="aether-v2-attach"><i class="fa-solid fa-paperclip"></i></button>
-        <input type="file" id="aev-file" accept="image/*" style="display:none">
+        <button class="attach" id="aev-attach" title="Attach image or CSV" data-testid="aether-v2-attach"><i class="fa-solid fa-paperclip"></i></button>
+        <input type="file" id="aev-file" accept="image/*,.csv,text/csv" style="display:none">
         <input type="text" id="aev-input" data-testid="aether-v2-input" placeholder="Ask Aether to do anything…" autocomplete="off"/>
         <button class="send" id="aev-send" data-testid="aether-v2-send" title="Send"><i class="fa-solid fa-paper-plane"></i></button>
       </div>

@@ -66,7 +66,7 @@ try {
                    ->execute([(int)$user['id'], $conv, 'user', $message]);
             } catch (\Throwable $e) {}
 
-            // Special: explicit approve/reject of last plan via natural language
+            // Special: explicit approve of last plan via natural language
             if (preg_match('/^\s*(approve|confirm|do it|yes execute)\b/i', $message)) {
                 $row = $db->prepare("SELECT id FROM aether_action_plans WHERE user_id=? AND status='proposed' ORDER BY id DESC LIMIT 1");
                 $row->execute([$user['id']]);
@@ -80,18 +80,24 @@ try {
                     aether_json(['action' => 'chat', 'reply' => $reply, 'plan' => ['id' => $pid, 'status' => $r['ok'] ? 'executed' : 'failed']]);
                 }
             }
-            if (preg_match('/^\s*(reject|cancel|abort|no don\'?t)\b/i', $message)) {
-                $row = $db->prepare("SELECT id FROM aether_action_plans WHERE user_id=? AND status='proposed' ORDER BY id DESC LIMIT 1");
-                $row->execute([$user['id']]);
-                $pid = (int)$row->fetchColumn();
-                if ($pid) {
-                    (new AetherReasoner($user, $db))->rejectPlan($pid);
-                    persistReply($db, $user, $conv, "Plan #$pid rejected. No changes made.");
-                    aether_json(['action' => 'chat', 'reply' => "Plan #$pid rejected. No changes made.", 'plan' => ['id' => $pid, 'status' => 'rejected']]);
+            // Reject latest plan — only if NO pending multi-turn intent (cancel is reserved for that)
+            if (preg_match('/^\s*(reject|abort)\b/i', $message)) {
+                require_once __DIR__ . '/pending-intents.php';
+                $hasPending = AetherPendingIntents::open((int)$user['id'], $conv);
+                if (!$hasPending) {
+                    $row = $db->prepare("SELECT id FROM aether_action_plans WHERE user_id=? AND status='proposed' ORDER BY id DESC LIMIT 1");
+                    $row->execute([$user['id']]);
+                    $pid = (int)$row->fetchColumn();
+                    if ($pid) {
+                        (new AetherReasoner($user, $db))->rejectPlan($pid);
+                        persistReply($db, $user, $conv, "Plan #$pid rejected. No changes made.");
+                        aether_json(['action' => 'chat', 'reply' => "Plan #$pid rejected. No changes made.", 'plan' => ['id' => $pid, 'status' => 'rejected']]);
+                    }
                 }
             }
 
             $reasoner = new AetherReasoner($user, $db);
+            $reasoner->setConversation($conv);
             $resp = $reasoner->reason($message);
             persistReply($db, $user, $conv, $resp['reply']);
 
@@ -283,6 +289,38 @@ try {
             $id = (int)($body['payroll_id'] ?? ($_GET['payroll_id'] ?? 0));
             if (!$id) aether_error('payroll_id required');
             AetherPDF::streamPayslip($id);
+        }
+
+        // ── CSV bulk import ─────────────────────────────────────────────
+        case 'csv_template': {
+            require_once __DIR__ . '/csv-importer.php';
+            $module = (string)($body['module'] ?? ($_GET['module'] ?? ''));
+            if (!$module) aether_error('module required');
+            AetherCsvImporter::streamTemplate($module);
+        }
+        case 'csv_import_preview': {
+            require_once __DIR__ . '/csv-importer.php';
+            $module = (string)($body['module'] ?? '');
+            $data   = (string)($body['data']   ?? '');
+            $name   = (string)($body['filename'] ?? 'upload.csv');
+            if (!$module || !$data) aether_error('module + data (base64 csv) required');
+            aether_json(['action'=>'csv_import_preview'] + AetherCsvImporter::preview($user, $module, $data, $name));
+        }
+        case 'csv_import_execute': {
+            require_once __DIR__ . '/csv-importer.php';
+            $importId = (int)($body['import_id'] ?? 0);
+            if (!$importId) aether_error('import_id required');
+            aether_json(['action'=>'csv_import_execute'] + AetherCsvImporter::execute($user, $importId));
+        }
+
+        // ── Reminders & impact reports — quick endpoints ────────────────
+        case 'reminders_scan': {
+            require_once __DIR__ . '/reminders.php';
+            aether_json(['action'=>'reminders_scan','buckets'=>AetherReminders::scan()]);
+        }
+        case 'my_tasks': {
+            require_once __DIR__ . '/my-tasks.php';
+            aether_json(['action'=>'my_tasks'] + AetherMyTasks::for_($user));
         }
 
         // ── Module-level analytical reports ─────────────────────────────

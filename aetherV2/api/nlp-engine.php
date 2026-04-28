@@ -69,6 +69,13 @@ class AetherNLP
         'create_program'  => ['create program', 'add program', 'new program', 'launch program'],
         'create_blog_post'=> ['create blog post', 'publish blog', 'add blog', 'new blog post', 'add article'],
         'send_message'    => ['send email to', 'send sms to', 'message to', 'email to', 'notify', 'send a thank you to'],
+
+        // Bulk + scheduled actions
+        'csv_import'      => ['import csv', 'bulk import', 'upload csv', 'csv upload', 'import data', 'bulk add'],
+        'csv_template'    => ['sample csv', 'csv template', 'csv example', 'download csv template'],
+        'impact_report'   => ['impact report', 'year end report', 'annual impact', 'donor impact', 'send impact report', 'top donor report'],
+        'donation_reminders' => ['donation reminder', 'inactive donors', 'remind donors', 'donor follow up', 'lapsed donors'],
+        'my_tasks'        => ['my tasks', 'pending tasks', 'todo', 'what should i do', 'my pending', 'my plans'],
     ];
 
     public function __construct(?PDO $db = null) {
@@ -225,6 +232,14 @@ class AetherNLP
         if (preg_match('/\b(create|add|launch|start)\s+(a\s+)?program\b/', $m)) return 'create_program';
         // Create blog post
         if (preg_match('/\b(create|publish|add|new)\s+blog\s+post\b/', $m)) return 'create_blog_post';
+        // Bulk + scheduled
+        if (preg_match('/\b(import|bulk|upload)\b.*\b(csv|excel|sheet|file)\b/', $m)) return 'csv_import';
+        if (preg_match('/\b(csv|sample)\b.*\btemplate\b|\btemplate\b.*\bcsv\b|\bsample\s+csv\b/', $m)) return 'csv_template';
+        if (preg_match('/\b(impact|year[- ]?end|annual)\b.*\breport\b/', $m)) return 'impact_report';
+        if (preg_match('/\b(remind|follow[- ]?up|lapsed|inactive)\b.*\bdonor/', $m)) return 'donation_reminders';
+        if (preg_match('/\bdonation\s+reminders?\b/', $m)) return 'donation_reminders';
+        if (preg_match('/\binactive\s+donors?\b|\blapsed\s+donors?\b/', $m)) return 'donation_reminders';
+        if (preg_match('/^(my\s+(tasks|pending|todo|plans|to[- ]?do)|what\s+should\s+i\s+do|todo)/', $m)) return 'my_tasks';
         return null;
     }
 
