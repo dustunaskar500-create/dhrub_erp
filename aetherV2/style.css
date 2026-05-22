@@ -167,6 +167,38 @@
 .aev-report-preview .kpi .l{font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--aev-muted);font-weight:600}
 .aev-report-preview .kpi .v{font-size:22px;font-weight:600;color:var(--aev-text);margin-top:4px;letter-spacing:-.02em}
 
+/* ── Resize handle (top-left of floating panel) ── */
+.aev-resize-handle {
+  position: absolute;
+  top: -2px; left: -2px;
+  width: 22px; height: 22px;
+  cursor: nwse-resize;
+  z-index: 5;
+  background:
+    linear-gradient(135deg, var(--aev-primary) 0%, var(--aev-primary) 30%, transparent 30%, transparent 35%, var(--aev-primary) 35%, var(--aev-primary) 50%, transparent 50%, transparent 55%, var(--aev-primary) 55%, var(--aev-primary) 70%, transparent 70%);
+  border-radius: 14px 0 0 0;
+  opacity: 0.45;
+  transition: opacity .15s;
+}
+.aev-resize-handle:hover { opacity: 1; }
+.aev-panel { position: fixed; /* keep, just ensures handle anchors */ }
+
+/* Mic recording state */
+.aev-input button.attach.recording {
+  color: var(--aev-bad);
+  animation: aev-mic-pulse 1s infinite ease-in-out;
+}
+@keyframes aev-mic-pulse {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.18); }
+}
+
+/* Make panel respect resize while still keeping it tidy on mobile */
+@media (max-width: 540px) {
+  .aev-resize-handle { display: none; }
+  .aev-panel { width: calc(100vw - 24px) !important; height: 80vh !important; }
+}
+
 /* Clickable KPI cards with drill-down hint */
 .aev-kpi.clickable{cursor:pointer;position:relative;transition:all .18s ease}
 .aev-kpi.clickable:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(16,185,129,.18);border-color:var(--aev-primary)}

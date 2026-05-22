@@ -170,6 +170,12 @@ function aether_run_migrations(?PDO $db = null): array {
         AetherTaskAssignments::ensureTable($db);
     } catch (\Throwable $e) {}
 
+    // chat memory (LLM context + butler continuity)
+    try {
+        require_once __DIR__ . '/chat-memory.php';
+        AetherChatMemory::ensureTable($db);
+    } catch (\Throwable $e) {}
+
     // CSV import job table
     try {
         $db->exec(

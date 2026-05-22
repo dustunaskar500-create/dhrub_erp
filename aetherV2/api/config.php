@@ -56,6 +56,14 @@ if (!defined('AETHER_SMTP_FROM_EMAIL'))define('AETHER_SMTP_FROM_EMAIL',$pick('SM
 if (!defined('AETHER_FAST2SMS_KEY'))     define('AETHER_FAST2SMS_KEY',     $pick('FAST2SMS_API_KEY', ''));
 if (!defined('AETHER_FAST2SMS_SENDER'))  define('AETHER_FAST2SMS_SENDER',  $pick('FAST2SMS_SENDER',  'AETHR'));
 
+// ── Aether AI brain (hybrid: local rules + LLM via Emergent proxy) ──────
+if (!defined('AETHER_LLM_KEY'))      define('AETHER_LLM_KEY',      $pick('EMERGENT_LLM_KEY', ''));
+if (!defined('AETHER_LLM_ENDPOINT')) define('AETHER_LLM_ENDPOINT', $pick('AETHER_LLM_ENDPOINT', 'https://integrations.emergentagent.com/llm/chat/completions'));
+if (!defined('AETHER_LLM_MODEL'))    define('AETHER_LLM_MODEL',    $pick('AETHER_LLM_MODEL', 'claude-sonnet-4-6'));
+if (!defined('AETHER_LLM_FALLBACK')) define('AETHER_LLM_FALLBACK', $pick('AETHER_LLM_FALLBACK_MODEL', 'claude-haiku-4-5-20251001'));
+if (!defined('AETHER_LLM_THRESHOLD'))define('AETHER_LLM_THRESHOLD',(float)$pick('AETHER_LLM_THRESHOLD','0.55'));
+if (!defined('AETHER_LLM_MAX_TOKENS'))define('AETHER_LLM_MAX_TOKENS',(int)$pick('AETHER_LLM_MAX_TOKENS','1200'));
+
 date_default_timezone_set($pick('TIMEZONE', 'Asia/Kolkata'));
 ini_set('display_errors', '0');
 ini_set('log_errors', '1');

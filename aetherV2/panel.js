@@ -82,12 +82,15 @@
     panel.className = 'aev-panel';
     panel.setAttribute('data-testid','aether-v2-panel');
     panel.innerHTML = `
+      <div class="aev-resize-handle" id="aev-resize-handle" title="Drag to resize"></div>
       <div class="aev-panel-head">
         <div class="aev-mark"></div>
         <div class="aev-panel-title">
           <h3>Aether</h3>
-          <div class="panel-sub" id="aev-sub">Autonomous · local · adaptive</div>
+          <div class="panel-sub" id="aev-sub">At your service, sir.</div>
         </div>
+        <button class="aev-iconbtn" id="aev-voice-toggle" title="Auto-read replies aloud" data-testid="aether-v2-voice"><i class="fa-solid fa-volume-xmark"></i></button>
+        <button class="aev-iconbtn" id="aev-fullscreen" title="Open standalone Aether" data-testid="aether-v2-fullscreen"><i class="fa-solid fa-expand"></i></button>
         <button class="aev-iconbtn" id="aev-dash" title="Open Command Centre" data-testid="aether-v2-open-dash"><i class="fa-solid fa-up-right-from-square"></i></button>
         <button class="aev-iconbtn" id="aev-clear" title="Clear chat" data-testid="aether-v2-clear"><i class="fa-solid fa-trash-can"></i></button>
         <button class="aev-iconbtn" id="aev-close" title="Close" data-testid="aether-v2-close"><i class="fa-solid fa-xmark"></i></button>
@@ -127,6 +130,7 @@
         <button class="attach" id="aev-attach" title="Attach image or CSV" data-testid="aether-v2-attach"><i class="fa-solid fa-paperclip"></i></button>
         <input type="file" id="aev-file" accept="image/*,.csv,text/csv" style="display:none">
         <input type="text" id="aev-input" data-testid="aether-v2-input" placeholder="Ask Aether to do anything…" autocomplete="off"/>
+        <button class="attach" id="aev-mic" title="Voice input" data-testid="aether-v2-mic"><i class="fa-solid fa-microphone"></i></button>
         <button class="send" id="aev-send" data-testid="aether-v2-send" title="Send"><i class="fa-solid fa-paper-plane"></i></button>
       </div>
     `;
@@ -156,6 +160,7 @@
 
     panel.querySelector('#aev-close').addEventListener('click', closePanel);
     panel.querySelector('#aev-dash').addEventListener('click', () => window.location.href = DASH);
+    panel.querySelector('#aev-fullscreen').addEventListener('click', () => window.open(BASE + 'chat.php', '_blank'));
     panel.querySelector('#aev-clear').addEventListener('click', async () => {
       await call('clear_history');
       body.innerHTML='';
@@ -165,6 +170,86 @@
     input.addEventListener('keydown', e => { if (e.key==='Enter' && !e.shiftKey) { e.preventDefault(); send(input.value); }});
     panel.querySelectorAll('#aev-quick button').forEach(b => {
       b.addEventListener('click', () => { input.value = b.dataset.q; send(b.dataset.q); });
+    });
+
+    // ── Voice toggle (auto-speak replies) ──
+    const voiceBtn = panel.querySelector('#aev-voice-toggle');
+    let voiceOn = localStorage.getItem('aether_voice') === '1';
+    updateVoiceUI();
+    voiceBtn.addEventListener('click', () => {
+      voiceOn = !voiceOn;
+      localStorage.setItem('aether_voice', voiceOn ? '1' : '0');
+      updateVoiceUI();
+      if (!voiceOn) window.speechSynthesis?.cancel();
+    });
+    function updateVoiceUI() {
+      voiceBtn.innerHTML = voiceOn
+        ? '<i class="fa-solid fa-volume-high" style="color:var(--aev-primary)"></i>'
+        : '<i class="fa-solid fa-volume-xmark"></i>';
+      voiceBtn.title = voiceOn ? 'Click to silence' : 'Auto-read replies aloud';
+    }
+    // Expose so other functions can read it
+    panel.__voiceOn = () => voiceOn;
+
+    // ── Mic (Web Speech API STT) ──
+    const micBtn = panel.querySelector('#aev-mic');
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { micBtn.style.display = 'none'; }
+    else {
+      const recog = new SR();
+      recog.continuous = false;
+      recog.interimResults = true;
+      recog.lang = 'en-IN';
+      let recording = false;
+      recog.onresult = e => {
+        let txt = '';
+        for (let i = e.resultIndex; i < e.results.length; i++) txt += e.results[i][0].transcript;
+        input.value = txt;
+      };
+      recog.onend = () => { recording = false; micBtn.classList.remove('recording'); };
+      recog.onerror = () => { recording = false; micBtn.classList.remove('recording'); };
+      micBtn.addEventListener('click', () => {
+        if (recording) { recog.stop(); return; }
+        recording = true; micBtn.classList.add('recording');
+        try { recog.start(); } catch (e) { recording = false; micBtn.classList.remove('recording'); }
+      });
+    }
+
+    // ── Resize handle (top-left corner) ──
+    const resizeHandle = panel.querySelector('#aev-resize-handle');
+    let resizing = false, startX = 0, startY = 0, startW = 0, startH = 0;
+    // Load saved size
+    const savedW = parseInt(localStorage.getItem('aether_panel_w') || '0', 10);
+    const savedH = parseInt(localStorage.getItem('aether_panel_h') || '0', 10);
+    if (savedW > 320 && savedH > 320) {
+      panel.style.width = savedW + 'px';
+      panel.style.height = savedH + 'px';
+    }
+    resizeHandle.addEventListener('mousedown', e => {
+      resizing = true;
+      startX = e.clientX; startY = e.clientY;
+      const rect = panel.getBoundingClientRect();
+      startW = rect.width; startH = rect.height;
+      document.body.style.userSelect = 'none';
+      e.preventDefault();
+    });
+    document.addEventListener('mousemove', e => {
+      if (!resizing) return;
+      // Top-left grows the panel up and left
+      const dx = startX - e.clientX;
+      const dy = startY - e.clientY;
+      const newW = Math.max(360, Math.min(window.innerWidth - 40, startW + dx));
+      const newH = Math.max(420, Math.min(window.innerHeight - 40, startH + dy));
+      panel.style.width = newW + 'px';
+      panel.style.height = newH + 'px';
+    });
+    document.addEventListener('mouseup', () => {
+      if (!resizing) return;
+      resizing = false;
+      document.body.style.userSelect = '';
+      const rect = panel.getBoundingClientRect();
+      localStorage.setItem('aether_panel_w', String(Math.round(rect.width)));
+      localStorage.setItem('aether_panel_h', String(Math.round(rect.height)));
     });
 
     // attach handler
@@ -187,10 +272,14 @@
     if (!body.children.length) {
       const role = currentUser?.role || 'user';
       const name = currentUser?.full_name || currentUser?.username || 'there';
+      // Use last name with honorific for butler tone
+      const parts = (name || '').trim().split(/\s+/);
+      const honoured = parts.length >= 2 ? 'Mr. ' + parts[parts.length-1] : name;
       bubble('bot',
-        md(`Hi **${name}** — I'm **Aether**. I run **fully on-premise** with zero external calls.\n\n` +
-           `I can run reports, record donations (with auto-emailed PDF receipts + thank-you SMS), update inventory, draft blog posts, suggest image captions, send custom emails, and more — all proposed as **plans you approve once**.\n\n` +
-           `Try a chip below or just type. _Logged in as \`${role}\`._`),
+        md(`At your service, **${honoured}**. ` +
+           `I am **Aether**, your butler-in-residence — fully on-premise rule engine paired with Claude Sonnet for the moments that require deeper thought.\n\n` +
+           `I shall be glad to manage donations, expenses, statutory compliance, blog drafts, inventory, payroll, donor outreach — whatever the estate requires of me. Each action is proposed as a plan for your approval, sir.\n\n` +
+           `Try a chip below or simply speak your mind. _Position: \`${role}\`._`),
         { feedback:false });
     }
     setTimeout(()=>input.focus(), 300);
@@ -199,6 +288,33 @@
     panel.classList.remove('open');
     launcher.classList.remove('open');
   }
+
+  // ── Text-to-speech: read butler replies aloud ──
+  function speakButler(text){
+    if (!window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    const clean = String(text||'')
+      .replace(/```[\s\S]+?```/g, '')
+      .replace(/\*\*([^*]+)\*\*/g, '$1')
+      .replace(/\*([^*]+)\*/g, '$1')
+      .replace(/`([^`]+)`/g, '$1')
+      .replace(/[#>_~]/g, '')
+      .replace(/<[^>]+>/g, '')
+      .replace(/\s+/g, ' ')
+      .slice(0, 1500); // safety cap for very long replies
+    if (!clean) return;
+    const voices = window.speechSynthesis.getVoices();
+    const pick =
+      voices.find(v => /en-GB/i.test(v.lang) && /Daniel|Oliver|Arthur/i.test(v.name)) ||
+      voices.find(v => /en-GB/i.test(v.lang)) ||
+      voices.find(v => /en-IN/i.test(v.lang)) ||
+      voices.find(v => /en/i.test(v.lang));
+    const utt = new SpeechSynthesisUtterance(clean);
+    if (pick) utt.voice = pick;
+    utt.rate = 1.02; utt.pitch = 0.95; utt.volume = 1;
+    window.speechSynthesis.speak(utt);
+  }
+
 
   function attachFile(file){
     if (!file) return;
@@ -349,20 +465,105 @@
 
     bubble('user', md(text));
     input.value=''; sendBtn.disabled = true;
-    const t = showTyping();
+
+    // ── Streaming chat (SSE) — gracefully degrades to non-streaming on error ──
+    const bot = document.createElement('div');
+    bot.className = 'aev-msg bot';
+    bot.innerHTML = '<div class="aev-typing"><span></span><span></span><span></span></div>';
+    body.appendChild(bot);
+    body.scrollTop = body.scrollHeight;
+
+    let collected = '';
+    let llmMeta = null;
     try {
-      const r = await call('chat', { message: text });
-      t.remove();
-      if (r.error) bubble('bot', `<em style="color:var(--aev-bad)">${esc(r.error)}</em>`);
-      else bubble('bot', md(r.reply||''), { cards: r.cards, plan: r.plan });
-      if (r.plan) refreshBadge();
+      const url = API;
+      const resp = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() },
+        body: JSON.stringify({ action: 'chat_stream', message: text, conversation_id: 'panel' }),
+      });
+      if (!resp.ok || !resp.body) throw new Error('stream not available');
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder('utf-8');
+      let buf = '';
+      let started = false;
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        let idx;
+        while ((idx = buf.indexOf('\n\n')) >= 0) {
+          const frame = buf.slice(0, idx);
+          buf = buf.slice(idx + 2);
+          const lines = frame.split('\n');
+          let event = 'message', data = '';
+          for (const ln of lines) {
+            if (ln.startsWith('event: ')) event = ln.slice(7).trim();
+            else if (ln.startsWith('data: ')) data += ln.slice(6);
+          }
+          if (!data) continue;
+          let payload = {};
+          try { payload = JSON.parse(data); } catch (e) {}
+          if (event === 'status') {
+            // Replace typing dots with a soft "thinking…" hint once we hear status
+            bot.innerHTML = `<span style="opacity:.7;font-style:italic">Pondering, sir…</span>`;
+          } else if (event === 'token') {
+            if (!started) { bot.innerHTML = ''; started = true; }
+            collected += payload.t || '';
+            bot.innerHTML = md(collected);
+            body.scrollTop = body.scrollHeight;
+          } else if (event === 'done') {
+            llmMeta = payload;
+            if (payload.source === 'rules') {
+              // Plan card etc — re-render with plan support
+              renderBotMessage(bot, collected || payload.reply || '', { cards: payload.cards, plan: payload.plan });
+            }
+          }
+        }
+      }
+      if (!started && !collected) throw new Error('empty stream');
+      // Persist assistant reply server-side for next-turn memory
+      if (collected && llmMeta && llmMeta.source !== 'rules') {
+        call('chat_persist_assistant', { conversation_id: 'panel', text: collected, meta: llmMeta }).catch(()=>{});
+      }
+      if (llmMeta && llmMeta.plan) refreshBadge();
+      // Auto-speak if voice toggle on
+      if (collected && panel.__voiceOn && panel.__voiceOn()) {
+        speakButler(collected);
+      }
     } catch (e) {
-      t.remove();
-      bubble('bot', '<em style="color:var(--aev-bad)">Network or auth error. Are you logged in?</em>');
+      // Fallback to non-streaming
+      try {
+        const r = await call('chat', { message: text, conversation_id: 'panel' });
+        if (r.error) bot.innerHTML = `<em style="color:var(--aev-bad)">${esc(r.error)}</em>`;
+        else { renderBotMessage(bot, r.reply||'', { cards: r.cards, plan: r.plan }); if (r.plan) refreshBadge(); }
+      } catch (err) {
+        bot.innerHTML = '<em style="color:var(--aev-bad)">Network or auth error. Are you logged in?</em>';
+      }
     } finally {
       sendBtn.disabled = false;
       input.focus();
     }
+  }
+
+  // Helper — render plan-aware bot message after streaming completes
+  function renderBotMessage(el, text, opts){
+    el.innerHTML = md(text);
+    if (opts && opts.plan) {
+      const p = opts.plan;
+      el.innerHTML += `
+        <div class="aev-plan" data-testid="aether-v2-plan-card">
+          <div class="aev-plan-h"><i class="fa-solid fa-bolt"></i> Plan #${p.id} · ${esc(p.intent || '')}</div>
+          <div class="aev-plan-text">${md(p.preview || '')}</div>
+          <div class="aev-plan-actions">
+            <button class="approve" data-testid="aether-v2-approve">✓ Approve & execute</button>
+            <button class="reject" data-testid="aether-v2-reject">✗ Reject</button>
+          </div>
+        </div>`;
+      el.querySelector('.approve').addEventListener('click', () => approvePlan(p.id, el.querySelector('.aev-plan')));
+      el.querySelector('.reject').addEventListener('click', () => rejectPlan(p.id, el.querySelector('.aev-plan')));
+    }
+    body.scrollTop = body.scrollHeight;
   }
 
   async function approvePlan(id, el){

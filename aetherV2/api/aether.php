@@ -99,6 +99,17 @@ try {
             $reasoner = new AetherReasoner($user, $db);
             $reasoner->setConversation($conv);
             $resp = $reasoner->reason($message);
+
+            // ── Hybrid: escalate to the LLM butler when rules are weak ─────
+            require_once __DIR__ . '/hybrid-router.php';
+            $router = new AetherHybridRouter($user);
+            $useLlm = !$router->ruleAnswerSufficient($resp, $message);
+            $llmMeta = null;
+            if ($useLlm) {
+                $llmResp = $router->llmReply($message, $conv, ['text' => $resp['reply'] ?? '']);
+                $resp['reply'] = $llmResp['reply'];
+                $llmMeta = $llmResp['meta'];
+            }
             persistReply($db, $user, $conv, $resp['reply']);
 
             aether_json([
@@ -109,8 +120,120 @@ try {
                 'mode'       => $resp['mode'] ?? 'answer',
                 'intent'     => $resp['intent'],
                 'confidence' => $resp['confidence'],
+                'source'     => $llmMeta['source'] ?? 'rules',
+                'llm'        => $llmMeta,
                 'kg_matches' => array_slice($resp['kg_matches'] ?? [], 0, 6),
             ]);
+        }
+
+        // ── Streaming chat (SSE) ────────────────────────────────────────
+        case 'chat_stream': {
+            $message = trim((string)($body['message'] ?? ($_GET['message'] ?? '')));
+            $conv    = trim((string)($body['conversation_id'] ?? ($_GET['conversation_id'] ?? 'default'))) ?: 'default';
+            if ($message === '') aether_error('Empty message', 400);
+
+            // SSE headers
+            @ini_set('output_buffering', '0');
+            @ini_set('zlib.output_compression', '0');
+            while (ob_get_level()) ob_end_clean();
+            header('Content-Type: text/event-stream; charset=utf-8');
+            header('Cache-Control: no-cache, no-store, must-revalidate');
+            header('X-Accel-Buffering: no');
+            ignore_user_abort(false);
+
+            require_once __DIR__ . '/hybrid-router.php';
+            require_once __DIR__ . '/persona.php';
+            require_once __DIR__ . '/chat-memory.php';
+            require_once __DIR__ . '/brain.php';
+
+            $brain = new AetherBrain();
+
+            // Acknowledge instantly
+            echo "event: status\ndata: " . json_encode(['t' => 'thinking', 'model' => $brain->model()]) . "\n\n";
+            @ob_flush(); @flush();
+
+            // Run rules quickly to provide grounding context
+            $reasoner = new AetherReasoner($user, $db);
+            $reasoner->setConversation($conv);
+            $ruleResp = $reasoner->reason($message);
+
+            // If rules covered it fully (write intent / slot fill / high-conf read), stream the result as-is
+            $router = new AetherHybridRouter($user);
+            if ($router->ruleAnswerSufficient($ruleResp, $message)) {
+                echo "event: token\ndata: " . json_encode(['t' => $ruleResp['reply']]) . "\n\n";
+                @ob_flush(); @flush();
+                echo "event: done\ndata: " . json_encode([
+                    'source' => 'rules',
+                    'intent' => $ruleResp['intent'],
+                    'confidence' => $ruleResp['confidence'],
+                    'plan'   => $ruleResp['plan'] ?? null,
+                ]) . "\n\n";
+                @ob_flush(); @flush();
+                persistReply($db, $user, $conv, $ruleResp['reply']);
+                exit;
+            }
+
+            // Otherwise — stream from Claude with butler persona + live context
+            $ctx = (function () use ($db, $user) {
+                $kpis = [];
+                try {
+                    $don = $db->query("SELECT COUNT(*) c, COALESCE(SUM(amount),0) s FROM donations WHERE donation_date >= DATE_SUB(CURDATE(), INTERVAL 90 DAY)")->fetch();
+                    $kpis[] = ['label' => 'Donations (90d)', 'value' => '₹' . number_format((float)$don['s'])];
+                    $kpis[] = ['label' => 'Donation count', 'value' => (int)$don['c']];
+                    $exp = $db->query("SELECT COALESCE(SUM(amount),0) s FROM expenses WHERE expense_date >= DATE_SUB(CURDATE(), INTERVAL 90 DAY)")->fetch();
+                    $kpis[] = ['label' => 'Expenses (90d)', 'value' => '₹' . number_format((float)$exp['s'])];
+                } catch (\Throwable $e) {}
+                $pending = 0;
+                try { $pending = (int)$db->query("SELECT COUNT(*) FROM aether_action_plans WHERE status='proposed'")->fetchColumn(); } catch (\Throwable $e) {}
+                return ['kpis' => $kpis, 'pending_plans' => $pending];
+            })();
+            $sys = AetherPersona::systemPrompt($user, $ctx);
+            if (!empty($ruleResp['reply'])) {
+                $sys .= "\n\n# Local rule engine result (live data; quote or paraphrase faithfully)\n" .
+                        mb_substr($ruleResp['reply'], 0, 1800);
+            }
+
+            // Inject conversation history
+            $messages = [['role' => 'system', 'content' => $sys]];
+            foreach (AetherChatMemory::recent((int)$user['id'], $conv, 16) as $m) {
+                if (in_array($m['role'], ['user', 'assistant'], true)) {
+                    $messages[] = ['role' => $m['role'], 'content' => $m['content']];
+                }
+            }
+            $messages[] = ['role' => 'user', 'content' => $message];
+
+            AetherChatMemory::append((int)$user['id'], $conv, 'user', $message);
+
+            // Capture streamed tokens to persist the full reply
+            $captured = '';
+            $origStream = function () use (&$captured, $brain, $messages, &$origStream) {};
+            // Echo from Claude
+            $brain->stream($messages);
+            // Note: stream() writes directly to stdout. We can't easily capture the
+            // text mid-flight from within this scope, so we re-fetch the assistant's
+            // latest contribution from the captured output via output buffering.
+            // For persistence, we run a quick non-streaming "what did you just say"
+            // — but to keep this simple and idempotent, we re-emit a marker and
+            // call AetherChatMemory.append on the client-acknowledged "done" frame.
+
+            // No persistence here — frontend will call /history endpoint OR we'll
+            // do a follow-up update via chat_persist_assistant if needed.
+            exit;
+        }
+
+        // Persist the assistant's streamed reply (client calls this after SSE ends)
+        case 'chat_persist_assistant': {
+            require_once __DIR__ . '/chat-memory.php';
+            $conv = trim((string)($body['conversation_id'] ?? 'default')) ?: 'default';
+            $text = trim((string)($body['text'] ?? ''));
+            if ($text !== '') {
+                AetherChatMemory::append((int)$user['id'], $conv, 'assistant', $text, $body['meta'] ?? []);
+                try {
+                    $db->prepare("INSERT INTO aether_memory (user_id, conversation_id, role, content) VALUES (?,?,?,?)")
+                       ->execute([(int)$user['id'], $conv, 'assistant', $text]);
+                } catch (\Throwable $e) {}
+            }
+            aether_json(['ok' => true]);
         }
 
         // ── Conversation history ────────────────────────────────────────

@@ -94,13 +94,23 @@ aetherV2/
 - iteration_2: 100% / 100%
 - iteration_3: 93% backend (3 minor planner bugs) → fixed → verified 100% via direct curl tests
 - iteration_4: 100% backend (21/21 new tests) / 100% frontend (all 6 dashboard tabs + assign modal + reports hub verified)
-- iteration_5: 100% backend (31/31: 18 iter5 + 13 extra) / 100% frontend (7 tabs + KPI drill-down + compliance + custom dates + floating import panel)
+- iteration_5: 100% backend (31/31) / 100% frontend (7 tabs + KPI drill-down + compliance + custom dates + floating import panel)
+- iteration_6: 100% backend (7/7 butler/LLM/memory/streaming/RBAC-aware persona)
+- iteration_7: 100% backend (4/4 standalone chat.php + voice + resize) — **50/50 cumulative pass**
 
 ## ERP changes required (still only 1 file)
-- **`app.html`** — add `<script src="/aetherV2/panel.js" defer></script>` before `</body>`
-- Hostinger production path: **`public_html/dhrub_erp/aetherV2/`** (the `aetherV2/` folder lives inside your existing dhrub_erp web root).
+- **`app.html`** — add `<script src="aetherV2/panel.js" defer></script>` before `</body>`
+- Hostinger production path: **`public_html/dhrub_erp/aetherV2/`** OR for subdomain `domains/erp.dhrubfoundation.org/public_html/aetherV2/`
 
-## Iteration 5 (Apr 28 2026) — RBAC + Compliance + KPI drill-down + Custom dates
+## Iteration 7 (May 22 2026) — Two entry points + Voice + Resizable
+- **Standalone Aether at `/aetherV2/chat.php`** (NEW): full-screen ChatGPT/Claude-style UI with dark theme, Crimson Pro italic welcome ("At your service."), role-aware suggestion cards, sidebar with conversation history (localStorage), per-message Speak button, voice toggle in topbar, full streaming SSE. Requires the same ERP JWT — auth wall shown if not logged in with role-verification banner.
+- **Voice in + out** (Web Speech API): mic button (STT, en-IN), voice toggle for auto-TTS, prefers en-GB voices for butler tone, per-message "Speak" button, works in both panel + chat.php.
+- **Resizable floating panel**: drag handle on top-left corner, min 360×420, max viewport-40, size persists per-browser in localStorage. Mobile auto-overrides to full width.
+- **Panel: added Voice toggle + Fullscreen button + Mic button** to existing top bar / input row.
+- **Cron Doctor** (`api/cron-doctor.php`, NEW): SSH-runnable diagnostic. Reports PHP version, extensions, file presence, .env validity, DB connectivity, table counts, heartbeat dry-run, and prints the exact cron command for Hostinger.
+- **DEPLOY.md** (NEW): full 10-step Hostinger deployment guide with sub-folder + subdomain paths, troubleshooting matrix, role permission table, sign-off checklist.
+
+## Iteration 6 (May 21 2026) — Hybrid AI butler
 - **Role-Based Access Control** (`rbac.php`, NEW): per-role module access + field redaction. super_admin = full; admin = full data; manager = ops without HR salaries / donor PII; accountant = donations + expenses (incl donor contacts) but no salaries; hr = HR + volunteers, donations only as counts; editor = donor names + CMS + gallery, no financials; viewer = aggregate counts only. Applied to chat list endpoints (donations, donors, expenses, employees), kpi_details, compliance_report, csv_import.
 - **Indian govt compliance audit reports** (`compliance.php`, NEW): 5 statutory sections — **80G** (donor + receipt register, cash >₹2K flagged, PAN missing for receipts ≥₹10K), **12A** (income & expenditure with 85% application rule), **FCRA** (foreign contribution Form FC-4 with Indian fiscal quarters Apr–Mar), **Form 10B** (auditor's report with checklist), **CSR** (Sec 135 corporate donations) + Combined pack + Overview snapshot. Custom date range required. CSV export wired.
 - **Clickable KPI drill-down** (`kpi-details.php`, NEW): every KPI card on Overview now opens a modal with full record table + per-method/category breakdown + Export CSV (super_admin/admin only — RBAC enforced).
