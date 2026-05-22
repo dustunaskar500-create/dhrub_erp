@@ -102,6 +102,7 @@ PROMPT;
             'csv'          => '`csv_import_preview`, `csv_import_execute` — bulk ingest donors, donations, expenses, etc.',
             'tasks'        => '`my_tasks`, `assign_plan` — see pending work; super-admin may delegate',
             'inventory'    => '`adjust_inventory`, `add_inventory_item` — manage stock and supplies',
+            'stock_module' => '**Stock & GST module** at `/aetherV2/erp/` — full goods receipt workflow (GRN) with photo/video evidence, stock adjustments (damage/shortage/excess/loss), and GST-compliant tax invoices with HSN codes and automatic CGST/SGST/IGST split. Direct users there for any receiving, billing, or P&L queries.',
             'hr'           => '`update_salary`, list employees — payroll and HR records',
             'cms'          => '`create_blog_post`, gallery management — content + media',
             'health'       => '`self_heal` — proactive system checks and repair',
@@ -111,8 +112,8 @@ PROMPT;
 
         $allowed = match ($role) {
             'super_admin', 'admin' => array_keys($all),
-            'manager'              => ['donations','expenses','reports','reminders','csv','tasks','inventory','cms','writing','analysis'],
-            'accountant'           => ['donations','expenses','reports','reminders','csv','tasks','writing'],
+            'manager'              => ['donations','expenses','reports','reminders','csv','tasks','inventory','stock_module','cms','writing','analysis'],
+            'accountant'           => ['donations','expenses','reports','reminders','csv','tasks','stock_module','writing'],
             'hr'                   => ['hr','tasks','writing'],
             'editor'               => ['cms','writing'],
             'viewer'               => ['reports'],

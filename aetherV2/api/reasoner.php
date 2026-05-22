@@ -107,6 +107,22 @@ class AetherReasoner
             }
         }
 
+        // 1.5 ERP stock + GST quick-answer (pre-NLP) — these are simple read-only queries
+        // that benefit from direct DB reads and a butler-formatted reply.
+        $erpAnswer = $this->erpQuickAnswer($message);
+        if ($erpAnswer) {
+            return [
+                'intent'      => 'erp_query',
+                'confidence'  => 0.95,
+                'entities'    => [],
+                'reply'       => $erpAnswer['text'],
+                'cards'       => $erpAnswer['cards'] ?? [],
+                'plan'        => null,
+                'mode'        => 'answer',
+                'kg_matches'  => [],
+            ];
+        }
+
         $nlp = new AetherNLP($this->db);
         $analysis = $nlp->analyze($message);
 
@@ -1153,6 +1169,149 @@ class AetherReasoner
     private function reMyTasks(): array {
         require_once __DIR__ . '/my-tasks.php';
         return AetherMyTasks::for_($this->user);
+    }
+
+    /* =====================================================================
+     *  ERP MODULE QUICK-ANSWERS — stock, GRN, GST, invoices, P&L
+     *  Lightweight regex routing for direct read queries answered in butler
+     *  voice with deep-links into /aetherV2/erp/.
+     * ===================================================================== */
+    private function erpQuickAnswer(string $message): ?array {
+        $m = strtolower(trim($message));
+        $erpUrl = '/aetherV2/erp/';
+
+        // — Stock value / inventory worth
+        if (preg_match('/\b(stock|inventory)\s+(value|worth|total)\b/', $m) ||
+            preg_match('/\b(total|how much)\s+(stock|inventory)\b/', $m)) {
+            try {
+                $r = $this->db->query("SELECT COUNT(*) c, COALESCE(SUM(quantity*cost_price),0) v,
+                                              COALESCE(SUM(CASE WHEN quantity<=min_stock THEN 1 ELSE 0 END),0) lo,
+                                              COALESCE(SUM(quantity*sale_price),0) sale_v
+                                       FROM inventory_items WHERE is_active=1")->fetch();
+                $v = (float)$r['v']; $c = (int)$r['c']; $lo = (int)$r['lo']; $sv = (float)$r['sale_v'];
+                $margin = $sv - $v;
+                return ['text' =>
+                    "At present, sir, we hold **$c active SKUs** with a stock value of **₹" . number_format($v, 2) . "** at cost.\n\n" .
+                    "If sold at list price, this would realise **₹" . number_format($sv, 2) . "** — an unrealised gross margin of **₹" . number_format($margin, 2) . "**.\n" .
+                    ($lo > 0 ? "⚠ $lo item(s) are below reorder level — I shall direct you to the [stock module]($erpUrl#stock?low=1) should you wish to review them.\n" : "All items remain above reorder thresholds.\n") .
+                    "\n_View the full picture in the [Stock Items module]($erpUrl#stock)._"
+                ];
+            } catch (\Throwable $e) {}
+        }
+
+        // — Low stock (already exists as intent but adding ERP-aware version)
+        if (preg_match('/\b(low|short|running\s*low|out\s*of)\s*stock\b/', $m) ||
+            preg_match('/\b(items?|stock)\s+(running\s+low|out)\b/', $m)) {
+            try {
+                $rows = $this->db->query("SELECT item_name, sku, quantity, min_stock, unit
+                                          FROM inventory_items
+                                          WHERE is_active=1 AND quantity <= min_stock
+                                          ORDER BY (quantity - min_stock) ASC LIMIT 12")->fetchAll(PDO::FETCH_ASSOC);
+                if (empty($rows)) return ['text' => "All clear, sir — nothing is below reorder level at present. ✓"];
+                $lines = ["A small list of concerns, sir. **" . count($rows) . " item(s)** are at or below reorder level:\n"];
+                foreach ($rows as $r) {
+                    $lines[] = "- **" . ($r['item_name']) . "** (`" . ($r['sku'] ?: '—') . "`) — _" . $r['quantity'] . ' / ' . $r['min_stock'] . ' ' . ($r['unit'] ?: 'pcs') . '_';
+                }
+                $lines[] = "\nShall I prepare a goods receipt? [Open Stock module]($erpUrl#stock?low=1)";
+                return ['text' => implode("\n", $lines)];
+            } catch (\Throwable $e) {}
+        }
+
+        // — Outstanding invoices / accounts receivable
+        if (preg_match('/\b(outstanding|pending|unpaid|due|receivable)\s+(invoice|bill|amount|payment)/', $m) ||
+            preg_match('/\b(invoice|bill)\s+(due|outstanding|pending)/', $m)) {
+            try {
+                $r = $this->db->query("SELECT COUNT(*) c,
+                                              COALESCE(SUM(grand_total - paid_amount),0) bal
+                                       FROM erp_tax_invoices
+                                       WHERE status NOT IN ('cancelled','draft') AND payment_status != 'paid'")->fetch();
+                $top = $this->db->query("SELECT invoice_number, buyer_name, grand_total, paid_amount, invoice_date
+                                         FROM erp_tax_invoices
+                                         WHERE status NOT IN ('cancelled','draft') AND payment_status != 'paid'
+                                         ORDER BY (grand_total - paid_amount) DESC LIMIT 5")->fetchAll(PDO::FETCH_ASSOC);
+                $lines = ["**Outstanding receivables: ₹" . number_format((float)$r['bal'], 2) . "** across " . $r['c'] . " unpaid invoice(s), sir."];
+                if (!empty($top)) {
+                    $lines[] = "\nThe largest balances:";
+                    foreach ($top as $t) {
+                        $bal = (float)$t['grand_total'] - (float)$t['paid_amount'];
+                        $lines[] = "- `" . $t['invoice_number'] . "` · **" . $t['buyer_name'] . "** — ₹" . number_format($bal, 2);
+                    }
+                }
+                $lines[] = "\n[Open Invoice module]($erpUrl#invoices)";
+                return ['text' => implode("\n", $lines)];
+            } catch (\Throwable $e) {}
+        }
+
+        // — GST tax collected / summary
+        if (preg_match('/\b(gst|tax)\b.*\b(collected|summary|total|paid|liab)/', $m) ||
+            preg_match('/\b(collect|paid|owe)\w*\s+(in\s+)?(gst|tax)/', $m) ||
+            preg_match('/\b(cgst|sgst|igst|gstr)\b/', $m)) {
+            try {
+                $thirty = date('Y-m-d', strtotime('-30 days'));
+                $r = $this->db->prepare("SELECT COALESCE(SUM(total_cgst),0) cgst, COALESCE(SUM(total_sgst),0) sgst,
+                                                COALESCE(SUM(total_igst),0) igst, COUNT(*) c,
+                                                COALESCE(SUM(grand_total),0) gross
+                                         FROM erp_tax_invoices
+                                         WHERE invoice_date >= ? AND status IN ('issued','paid','partial','overdue')");
+                $r->execute([$thirty]);
+                $x = $r->fetch();
+                $tax = (float)$x['cgst'] + (float)$x['sgst'] + (float)$x['igst'];
+                return ['text' =>
+                    "In the past 30 days, sir, we have issued **" . $x['c'] . " invoice(s)** totalling **₹" . number_format((float)$x['gross'], 2) . "**.\n\n" .
+                    "Tax collected: **₹" . number_format($tax, 2) . "** —\n" .
+                    "  • CGST ₹" . number_format((float)$x['cgst'], 2) . "\n" .
+                    "  • SGST ₹" . number_format((float)$x['sgst'], 2) . "\n" .
+                    "  • IGST ₹" . number_format((float)$x['igst'], 2) . "\n\n" .
+                    "_For a full HSN-wise breakdown (GSTR-1 Table 12 ready), the [Reports module]($erpUrl#reports) is at your service._"
+                ];
+            } catch (\Throwable $e) {}
+        }
+
+        // — Damages / shortages / losses
+        if (preg_match('/\b(damage|shortage|wastage|loss|theft|spoil)/', $m)) {
+            try {
+                $r = $this->db->query("SELECT adj_type, COUNT(*) c, COALESCE(SUM(value_impact),0) v
+                                       FROM erp_stock_adjustments
+                                       WHERE status='approved' AND adj_type IN ('damage','shortage','wastage','loss','theft')
+                                         AND created_at >= DATE_SUB(NOW(), INTERVAL 90 DAY)
+                                       GROUP BY adj_type")->fetchAll(PDO::FETCH_ASSOC);
+                if (empty($r)) return ['text' => "Nothing of concern in the last 90 days, sir — no approved damages, shortages, or losses on record. ✓"];
+                $total = 0; $lines = ["A regrettable summary, sir. Last 90 days losses:\n"];
+                foreach ($r as $row) {
+                    $total += (float)$row['v'];
+                    $lines[] = "- **" . ucfirst($row['adj_type']) . "** — " . $row['c'] . " incident(s) · ₹" . number_format((float)$row['v'], 2);
+                }
+                $lines[] = "\n**Total realised loss: ₹" . number_format($total, 2) . "**";
+                $lines[] = "\n_Open the [Adjustments register]($erpUrl#adjustments) to view evidence and full detail._";
+                return ['text' => implode("\n", $lines)];
+            } catch (\Throwable $e) {}
+        }
+
+        // — Pending GRN / receipts
+        if (preg_match('/\b(pending|draft|unposted)\s+(grn|receipt|delivery)/', $m) ||
+            preg_match('/\b(grn|goods?\s+receipt|receiving)\s+(pending|status|list|today)/', $m)) {
+            try {
+                $r = $this->db->query("SELECT COUNT(*) c FROM erp_grns WHERE status='draft'")->fetch();
+                $disc = $this->db->query("SELECT COUNT(*) c FROM erp_grns WHERE has_discrepancy=1 AND status='posted'")->fetch();
+                return ['text' =>
+                    "There are **" . $r['c'] . " draft GRN(s)** awaiting posting, sir, and **" . $disc['c'] . " posted receipt(s)** carry discrepancies for review.\n\n" .
+                    "_The [Goods Receipt module]($erpUrl#grn) holds the full ledger._"
+                ];
+            } catch (\Throwable $e) {}
+        }
+
+        // — Vendor count / list
+        if (preg_match('/\b(vendor|supplier)s?\s*(list|count|active|total)/', $m) ||
+            preg_match('/\bhow\s+many\s+(vendor|supplier)s?\b/', $m)) {
+            try {
+                $r = $this->db->query("SELECT COUNT(*) c FROM erp_vendors WHERE is_active=1")->fetch();
+                return ['text' =>
+                    "We have **" . $r['c'] . " active vendor(s)** on the register, sir. The [Vendor directory]($erpUrl#vendors) holds their GSTINs, banking details and contact information."
+                ];
+            } catch (\Throwable $e) {}
+        }
+
+        return null;
     }
 }
 

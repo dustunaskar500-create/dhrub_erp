@@ -714,6 +714,7 @@ main { display: flex; flex-direction: column; min-height: 0; background: transpa
         <button class="pill-btn" id="voice-toggle" data-testid="voice-toggle" title="Read replies aloud">
           <i class="fa-solid fa-volume-high"></i> Voice off
         </button>
+        <a href="erp/" class="pill-btn" title="Stock &amp; GST Billing"><i class="fa-solid fa-boxes-stacked"></i> Stock &amp; GST</a>
         <a href="dashboard.php" class="pill-btn" title="Open the dashboard"><i class="fa-solid fa-gauge-high"></i> Dashboard</a>
         <a href="<?= htmlspecialchars($erpUrl) ?>" class="pill-btn"><i class="fa-solid fa-arrow-left"></i> ERP</a>
       </div>
