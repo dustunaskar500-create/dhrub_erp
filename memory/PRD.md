@@ -1,146 +1,143 @@
-# Aether v2 — PRD
+# Aether V3 + ERP — Product Requirements Document
 
-## Original Problem Statement
-Design and develop **Aether** — an advanced, self-sufficient AI brain integrated with the Dhrub Foundation ERP. Must:
-- Run with **zero external API dependency** (fully on-premise)
-- **Adapt** to any structural/logical change in the ERP (schema, modules, business rules)
-- Detect **errors / inconsistencies** and self-heal where safe
-- **Learn** from interactions and improve over time
-- Provide **both a Command-Centre dashboard AND a floating panel** so users can converse, run reports, and approve writes from any ERP screen
-- Match existing ERP theme (emerald/slate/white)
-- **Auth-gated** (panel only visible when logged in)
-- **Dashboard restricted to super_admin**, others use the floating panel
-- **Capable of executing manpower-level tasks** through chat-driven planners
-- **Auto-receipt**: PDF + thank-you SMS to donors on donation approval (one-click)
-- **Module reports** for each ERP module
-- **Read attachments** to add gallery images
-- **Suggest writing** for image captions / blog posts
+## Original problem statement
+Design and develop an advanced, self-sufficient AI system named **Aether** integrated with a PHP/MySQL ERP ecosystem. Aether V3 is a hybrid AI (local rule-based engine + Claude Sonnet 4.5 fallback) featuring a Classic British Butler persona. It includes a Command Centre dashboard (super-admin), a standalone UI (`chat.php`), and a resizable floating panel. Capabilities include multi-turn data collection, bulk CSV import, Indian compliance reports (80G, FCRA), task assignment, RBAC, and voice STT/TTS interaction.
 
-## Architecture
-- **Self-contained PHP module** at `/aetherV2/` — drop-in for Hostinger/cPanel
-- MySQL (existing ERP DB extended with `aether_*` tables only)
-- Rule-based + TF-IDF + regex NLP, knowledge-graph entity linking
-- mPDF (vendor-shipped, 95 MB)
-- SMTP (raw socket, supports attachments) + Fast2SMS for notifications/receipts
-- Background heartbeat (`php heartbeat.php --once` for cron, daemon-mode for VPS)
+## Latest user request (Feb 2026)
+> "enhance both aether & erp system, also include a stock tracking system in erp according to general standard stock receiving process including receiving docs, photos & video evidences upload for & future shortage damage excess profit & loss tracking, update proper tax invoice & bill generation process for later GST related accounting work"
 
-## User Personas + Permissions
-| Role        | Chat | Reports | Receipts | Dashboard | Schema sync | Self-heal | Write planners |
-|-------------|------|---------|----------|-----------|-------------|-----------|----------------|
-| super_admin | ✓    | ✓       | ✓        | ✓         | ✓           | ✓         | ALL            |
-| admin       | ✓    | ✓       | ✓        | —         | ✓           | ✓         | most           |
-| manager     | ✓    | ✓       | ✓        | —         | —           | —         | donations, expenses, inventory, programs, volunteers, msg |
-| accountant  | ✓    | ✓       | ✓        | —         | —           | —         | donations, expenses, msg |
-| hr          | ✓    | ✓       | ✓        | —         | —           | —         | salary, volunteers |
-| editor      | ✓    | ✓       | ✓        | —         | —           | —         | donors, donations, blog, gallery, msg |
-| viewer      | ✓    | ✓       | view     | —         | —           | —         | none           |
+## What has been built
 
-## Features (cumulative across iterations)
+### Aether V3 core (previous sessions)
+- Hybrid AI router (local rules + Claude Sonnet 4.5 fallback via Emergent LLM key)
+- Standalone Aether UI at `/aetherV2/chat.php` with inline login, voice STT/TTS, mobile responsive
+- Command Centre dashboard with 6 tabs and KPI drill-downs (`/aetherV2/dashboard.php`)
+- Floating panel for ERP integration with resize + voice toggle (`panel.js`)
+- ERP race-condition fixes in `app.html.production` + `erp-updates/.htaccess`
+- Indian Compliance reports (80G/12A/FCRA/CSR/Form 10B)
+- RBAC across 6 roles, audit log, chat memory, donation reminders
 
-### Iteration 1: Core (97% backend / 100% frontend)
-- 22 API actions, 9 `aether_*` tables, schema watcher, knowledge graph, NLP, reasoner, error monitor, learning engine, audit log, heartbeat, dashboard, floating panel.
+### Stock Tracking + GST Module (this session) — NEW
+**Database** (additive migration at `/app/aetherV2/erp/migrations/001_stock_gst.sql`):
+- Extended `inventory_items` with `sku, hsn_code, gst_rate, cost_price, sale_price, barcode, reorder_qty, image_path`
+- New tables: `erp_vendors`, `erp_purchase_orders`, `erp_po_items`, `erp_grns`, `erp_grn_items`, `erp_grn_attachments`, `erp_stock_adjustments`, `erp_tax_invoices`, `erp_tax_invoice_items`, `erp_invoice_payments`, `erp_state_codes` (39 Indian states), `erp_doc_counters`
 
-### Iteration 2: Self-contained + visual schema diff (100% / 100%)
-- Moved everything to `/aetherV2/` standalone (own JWT decoder + DB class).
-- Added schema-diff visual viewer, light theme matching ERP, role-gated `self_heal`.
-- mPDF receipts (with `tempDir` fix) + SMTP notifier + Fast2SMS structure.
+**Backend** (`/app/aetherV2/erp/api/`):
+- `router.php` — unified dispatcher (`?action=stock_*|vendor_*|po_*|grn_*|invoice_*|ref_*|dash_*|seed_*`)
+- `common.php` — auth + helpers: `erp_next_doc_no()`, `erp_gstin_state_code()`, `erp_save_upload()`, `erp_number_to_words()` (Indian crore/lakh)
+- `stock.php`, `vendors.php`, `purchase.php`, `grn.php`, `invoice.php`, `ref.php`, `dashboard.php`, `seed.php`
 
-### Iteration 3: Auto-receipt + 8 new write planners + module reports + auth gate + new logo (100% backend / 100% frontend after fixes)
-- **Auto-receipt**: donation plans auto-fire `AetherNotifier::sendDonationReceipt()` on approve → PDF email + Fast2SMS thank-you. Failure reasons logged to audit.
-- **8 new write planners**: create_donor, create_volunteer, approve_expense, adjust_inventory, add_inventory_item, create_program, create_blog_post, send_message (custom email/SMS).
-- **Module reports** (8 modules: donations, expenses, hr, inventory, programs, volunteers, cms, audit) — text + KPI cards.
-- **Image upload** (`upload_image` action) with gallery row insert + `suggest_caption` for descriptions/alt-text + `suggest_blog` scaffolding.
-- **New logo**: SVG with concentric arcs (perceive · reason · act layers), orbital nodes, breathing animation.
-- **Auth gate**: panel.js doesn't inject launcher until JWT present; auto-removes on logout via `storage` event.
-- **Dashboard role-gated to super_admin only**: friendly overlay + "SUPER ADMIN ONLY" badge, with link back to ERP.
-- **Color-coded UI**: KPIs by category (donations=emerald, expenses=amber, hr=blue, inventory=cyan, cms=violet), highlighted ₹ amounts in chat (`.amount` class with primary tint).
-- **Reports tab** in floating panel with 8 module buttons.
-- **Attachment uploader** in panel: paperclip → file picker → preview → upload + caption suggestions.
-- **Test reporting fixes**: blog_posts category='story', inventory_items category='other', adjust_inventory NLP regex tightened.
+**Frontend** (`/app/aetherV2/erp/`):
+- `index.php` — SPA shell
+- `static/erp.js` — vanilla-JS hash-routed SPA (Dashboard, Stock, Vendors, GRN, Adjustments, Invoices, Reports)
+- `static/erp.css` — dark theme matching Aether aesthetic (emerald + violet), responsive
 
-## Files in `/app/aetherV2/`
+**Aether intelligence enhancements** (`/app/aetherV2/api/`):
+- `reasoner.php` — added `erpQuickAnswer()` method recognising 6 new ERP intents:
+  - "stock value / inventory worth"
+  - "low stock / running low"
+  - "outstanding invoices / receivables"
+  - "GST collected / tax paid / CGST/SGST/IGST"
+  - "damages / shortages / losses (last 90 days)"
+  - "pending GRN / goods receipts"
+  - "vendor count / suppliers"
+- `persona.php` — added `stock_module` capability so LLM is aware of the new module
+- `chat.php` — added "Stock & GST" link in topbar
+
+### Key features delivered
+1. **Vendor management** with GSTIN format validation, state code auto-derivation, banking details
+2. **Goods Receipt (GRN)** — standard receiving workflow with:
+   - PO-linked or direct receipt
+   - Supplier invoice + vehicle + driver + gate pass tracking
+   - Multi-line items with ordered/received/damaged/short/excess qty
+   - **Photo & video evidence uploads** (up to 64 MB) via drag-drop or click
+   - **Enforced**: cannot post a GRN with discrepancy unless ≥1 attachment exists
+   - Auto-creates damage/shortage/excess adjustments on posting
+   - Updates inventory_items.quantity automatically
+3. **Stock adjustments** for damage/shortage/excess/wastage/loss/theft/found/return — with evidence upload, P&L value tracking, approval workflow
+4. **GST tax invoice generation**:
+   - Tax Invoice, Bill of Supply, Credit/Debit Note, Proforma
+   - Automatic CGST+SGST split (intra-state) vs IGST (inter-state) based on seller/buyer state codes
+   - HSN code on every line, configurable GST rate per item
+   - Round-off + Indian "Amount in words" (crore/lakh)
+   - Invoice number format: `INV/2025-26/0001` (FY-scoped sequential)
+   - **PDF generation via mPDF** — A4, header with org GSTIN/PAN/bank, line-item table with IGST or CGST/SGST columns, amount in words, signature blocks, footer
+   - Payment recording with auto status (unpaid/partial/paid)
+5. **GST Reports (GSTR-1 Table-12 style)**:
+   - HSN-wise tax summary
+   - B2B / B2C breakdown
+   - Stock P&L breakdown (damage/shortage/etc.)
+   - CSV export
+6. **Document numbering** — atomic FY-scoped counters (INV-FY-NNNN, GRN-FY-NNNN, etc.)
+7. **Dashboard KPIs** — stock value, low stock count, revenue (30d), tax collected, GRN discrepancies, realised stock losses
+
+### File map
 ```
-aetherV2/
+/app/aetherV2/erp/
+├── index.php                       (SPA shell, login-gated)
 ├── api/
-│   ├── aether.php          (24 actions)
-│   ├── bootstrap.php       (self-contained AetherJWT + AetherDB)
-│   ├── config.php          (manual .env parser)
-│   ├── migrate.php         (9 aether_* tables)
-│   ├── audit-log.php       (auto-dispatches notifier)
-│   ├── notifier.php        (SMTP raw socket + attachments + Fast2SMS + sendDonationReceipt)
-│   ├── pdf-receipt.php     (mPDF receipts + payslips + renderReceiptString)
-│   ├── module-reports.php  (8 modules)
-│   ├── schema-watcher.php
-│   ├── knowledge-graph.php
-│   ├── nlp-engine.php      (with regex overrides for new intents)
-│   ├── reasoner.php        (13 write planners + auto-receipt)
-│   ├── error-monitor.php
-│   ├── learning-engine.php
-│   ├── heartbeat.php       (--once for cron)
-│   └── .htaccess
-├── vendor/                 (mPDF pre-installed)
-├── dashboard.php           (super_admin only, color-coded)
-├── panel.js                (auth-gated, attachment uploader, Reports tab)
-├── style.css               (light theme + new SVG logo + color hierarchy)
-├── logo.svg                (Aether mark)
-├── .env / .env.example
-├── INSTALL.md              (Hostinger guide with SMTP + cron)
-├── ERP_FILES_TO_CHANGE.md  (one ERP file edit)
-└── README.md
+│   ├── router.php                  (dispatcher)
+│   ├── common.php                  (helpers, auth)
+│   ├── stock.php                   (items, movements, adjustments, P&L)
+│   ├── vendors.php                 (vendor CRUD with GSTIN validation)
+│   ├── purchase.php                (purchase orders)
+│   ├── grn.php                     (goods receipts + multipart uploads)
+│   ├── invoice.php                 (GST tax invoices + PDF via mPDF)
+│   ├── ref.php                     (states, org settings)
+│   ├── dashboard.php               (KPIs)
+│   └── seed.php                    (demo data: 3 vendors, 8 items)
+├── static/
+│   ├── erp.css                     (dark theme, responsive)
+│   └── erp.js                      (vanilla JS, hash routing)
+└── migrations/
+    └── 001_stock_gst.sql           (additive schema)
+
+/app/uploads/erp/                   (file storage, mode 0775, owner www-data)
+├── grn/{grn_id}/...                (photos/videos)
+├── adjustments/...
+├── invoices/...                    (generated PDFs)
+└── items/...                       (item images)
 ```
 
-## Test results
-- iteration_1: 97% backend, 100% frontend
-- iteration_2: 100% / 100%
-- iteration_3: 93% backend (3 minor planner bugs) → fixed → verified 100% via direct curl tests
-- iteration_4: 100% backend (21/21 new tests) / 100% frontend (all 6 dashboard tabs + assign modal + reports hub verified)
-- iteration_5: 100% backend (31/31) / 100% frontend (7 tabs + KPI drill-down + compliance + custom dates + floating import panel)
-- iteration_6: 100% backend (7/7 butler/LLM/memory/streaming/RBAC-aware persona)
-- iteration_7: 100% backend (4/4 standalone chat.php + voice + resize) — **50/50 cumulative pass**
+### Authorisation matrix (Stock + GST module)
+| Action group       | super_admin | admin | manager | accountant | editor | viewer |
+|--------------------|:-:|:-:|:-:|:-:|:-:|:-:|
+| List/read          | ✓ | ✓ | ✓ | ✓ | ✗ | ✓ |
+| Save vendor        | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ |
+| Save item          | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ |
+| Save GRN draft     | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ |
+| Post GRN           | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ |
+| Adjust stock       | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ |
+| Approve adjustment | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ |
+| Save/Issue invoice | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ |
+| Cancel invoice     | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ |
+| Record payment     | ✓ | ✓ | ✗ | ✓ | ✗ | ✗ |
 
-## ERP changes required (still only 1 file)
-- **`app.html`** — add `<script src="aetherV2/panel.js" defer></script>` before `</body>`
-- Hostinger production path: **`public_html/dhrub_erp/aetherV2/`** OR for subdomain `domains/erp.dhrubfoundation.org/public_html/aetherV2/`
+## Testing status
+- `/app/test_reports/iteration_6.json` — **29/29 backend tests pass**, frontend smoke (login + 6 routes + mobile) verified.
+- One SQL reserved-word bug (`lines` alias in invoice_gst_summary) auto-fixed by testing agent — verified working with backticks.
 
-## Iteration 7 (May 22 2026) — Two entry points + Voice + Resizable
-- **Standalone Aether at `/aetherV2/chat.php`** (NEW): full-screen ChatGPT/Claude-style UI with dark theme, Crimson Pro italic welcome ("At your service."), role-aware suggestion cards, sidebar with conversation history (localStorage), per-message Speak button, voice toggle in topbar, full streaming SSE. Requires the same ERP JWT — auth wall shown if not logged in with role-verification banner.
-- **Voice in + out** (Web Speech API): mic button (STT, en-IN), voice toggle for auto-TTS, prefers en-GB voices for butler tone, per-message "Speak" button, works in both panel + chat.php.
-- **Resizable floating panel**: drag handle on top-left corner, min 360×420, max viewport-40, size persists per-browser in localStorage. Mobile auto-overrides to full width.
-- **Panel: added Voice toggle + Fullscreen button + Mic button** to existing top bar / input row.
-- **Cron Doctor** (`api/cron-doctor.php`, NEW): SSH-runnable diagnostic. Reports PHP version, extensions, file presence, .env validity, DB connectivity, table counts, heartbeat dry-run, and prints the exact cron command for Hostinger.
-- **DEPLOY.md** (NEW): full 10-step Hostinger deployment guide with sub-folder + subdomain paths, troubleshooting matrix, role permission table, sign-off checklist.
+## Backlog / Future
 
-## Iteration 6 (May 21 2026) — Hybrid AI butler
-- **Role-Based Access Control** (`rbac.php`, NEW): per-role module access + field redaction. super_admin = full; admin = full data; manager = ops without HR salaries / donor PII; accountant = donations + expenses (incl donor contacts) but no salaries; hr = HR + volunteers, donations only as counts; editor = donor names + CMS + gallery, no financials; viewer = aggregate counts only. Applied to chat list endpoints (donations, donors, expenses, employees), kpi_details, compliance_report, csv_import.
-- **Indian govt compliance audit reports** (`compliance.php`, NEW): 5 statutory sections — **80G** (donor + receipt register, cash >₹2K flagged, PAN missing for receipts ≥₹10K), **12A** (income & expenditure with 85% application rule), **FCRA** (foreign contribution Form FC-4 with Indian fiscal quarters Apr–Mar), **Form 10B** (auditor's report with checklist), **CSR** (Sec 135 corporate donations) + Combined pack + Overview snapshot. Custom date range required. CSV export wired.
-- **Clickable KPI drill-down** (`kpi-details.php`, NEW): every KPI card on Overview now opens a modal with full record table + per-method/category breakdown + Export CSV (super_admin/admin only — RBAC enforced).
-- **Custom date ranges**: Reports tab gets new "Custom range…" period that reveals date-pickers, plus FY 2025-26 / FY 2024-25 presets that auto-fill 1 Apr → 31 Mar.
-- **Compliance tab** with section dropdown (7 sections), date-pickers, Quick FY selector, Build, Export CSV, Print / Save PDF.
-- **Floating panel "Import" tab** for super_admin: 7 module rows (Donors / Donations / Expenses / Employees / Volunteers / Inventory / Programs), each with Sample download + Upload buttons. Role-gated visually + at API. Banner explains what's allowed for the current role.
-- **Module reports with custom dates**: `module_report` and `report_export` now accept `from`/`to` (YYYY-MM-DD) and label the period accordingly. CSV export includes role tag in header.
-- **CSV importer hardening**: `insertGeneric()` now filters column list against `information_schema` so extra/unknown columns in the CSV are silently dropped (was throwing SQLSTATE before).
-- **Hostinger paths updated**: INSTALL.md + ERP_FILES_TO_CHANGE.md now reference `public_html/dhrub_erp/aetherV2/`. Cron snippet: `*/2 * * * * php /home/uXXXXXXXX/public_html/dhrub_erp/aetherV2/api/heartbeat.php --once`.
-- **New backend endpoints**: `rbac_info`, `kpi_details`, `compliance_report`, `compliance_export`. All RBAC-aware.
-- **Bug fix**: panel.js Tasks tab now actually loads (`loadTasks()`); paperclip detects CSV vs image; "Tasks" badge in dashboard tabs reflects live count.
-- **Container reset recovery**: rebuilt Apache + MariaDB + PHP toolchain; restored DB from `/app/erp_workspace/dhrub_erp.sql`. All non-admin user passwords reset to `admin123`.
+### P1 — ERP host integration
+- Update remaining ERP source code (`_dhrub_erp`) to use the new Stock & GST APIs directly (replace any older ad-hoc inventory pages).
+- Push final ZIP to user's Hostinger when requested.
 
-## Iteration 4 (Apr 28 2026) — Phase 1 complete + dashboard 2.0
-- **Multi-turn slot filling** (`reasoner.php` + `pending-intents.php`): `record_donation`, `create_donor`, `create_expense`, `update_salary`, `add_inventory_item`, `adjust_inventory`, `create_program`, `create_blog_post`, `send_message`, `approve_expense`, `impact_report`, `csv_import` — Aether now asks follow-up questions when info is missing.
-- **Bulk CSV importer** (`csv-importer.php`): per-module sample CSVs (donors, donations, expenses, employees, volunteers, inventory, programs); preview+execute pipeline with unknown-column filtering and validation; integrated into floating panel via paperclip.
-- **Year-end Impact Reports** (`impact-report.php`): personalised one-page PDF per donor + email + Fast2SMS dispatch as a single plan.
-- **Donation Reminders** (`reminders.php`): 30/60/90+ inactivity buckets with tone-appropriate emails; 90+ cohort escalates to admin.
-- **My Tasks** (`my-tasks.php`): role-aware task list (super_admin sees schema diffs, critical issues, lapsed donors; accountant/manager sees pending expenses; HR sees missing contact info; editor sees blog drafts/gallery captions; manager sees low stock).
-- **Task Assignments** (`task-assignments.php`, NEW): super_admin can re-assign any pending plan to any user with a note; assigned users see plans in their floating-panel Tasks tab.
-- **Reports History + Export** (`reports-history.php`, NEW): timeline of every report Aether has generated (impact reports, reminders, audit-derived module reports); CSV export for all 8 modules.
-- **Dashboard 2.0** (rewritten): six tabs — Overview, Pending Tasks (super-admin all-user view + filters + approve/reject/assign), Reports (live module preview + export + history), Schema Diff, Knowledge Graph (entity search), Audit Trail (filterable, exportable). Assign-task modal, dynamic period/module dropdowns, print-to-PDF report view.
-- **Panel.js fixes**: `loadTasks()` for the Tasks tab; CSV detection in attachment handler; `renderCsvPreview()` flow; "Assigned to me" rendering inside Tasks tab.
-- **New backend endpoints**: `my_tasks`, `all_pending_plans`, `assign_plan`, `assigned_to_me`, `users_list`, `reports_history`, `report_export`, `csv_import_preview`, `csv_import_execute`, `csv_template`, `reminders_scan`.
-- **New DB tables**: `aether_pending_intents`, `aether_csv_imports`, `aether_task_assignments`.
+### P2 — Polish & extensions
+- e-Invoice IRN integration (placeholder fields exist: `irn`, `ack_no`, `ack_date`, `qr_payload`)
+- Purchase order PDF (template ready, just needs the PHP page)
+- Customer master (currently buyer details typed per-invoice)
+- Multi-warehouse / location support (column exists; UI not exposed)
+- TDS/TCS support (not yet)
+- Recurring invoices
+- GSTR-3B export (currently only GSTR-1 HSN summary done)
+- Customer/vendor portal (read-only public links)
+- Webhook events to Aether on GRN post / invoice issued (so the butler can proactively notify the user)
+- SMTP/Fast2SMS credentials (still mocked/skipped per earlier user direction)
 
-## Backlog
-- P2 — Force-directed knowledge-graph viewer (entity-relationship visualisation)
-- P2 — Customisable health-check rules from the dashboard UI
-- P3 — Anomaly detection on time-series (donation drops, expense spikes)
-- P3 — Vision-based caption suggestions (would need local Ollama+LLaVA — out of scope)
-- P3 — Multi-language NLP exemplars
-- P3 — Refactor `reasoner.php` (>1100 LOC) into per-intent planner classes
+### P3 — Future
+- Barcode scanning camera (PWA)
+- Tally / Zoho Books export
+- Audit trail differential view (already log all actions to aether_audit_log; just needs a viewer)
+- e-Way bill generation
+- Composition scheme variant
