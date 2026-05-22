@@ -904,7 +904,7 @@
     if (!t) {
       if (launcher) uninject();
       currentUser = null;
-      return;
+      return false;
     }
     if (!launcher) {
       try {
@@ -913,15 +913,38 @@
         if (currentUser) {
           inject();
           refreshBadge();
+          return true;
         }
       } catch(e) {}
     }
+    return !!launcher;
   }
-  authCheck();
+
+  // Initial mount: when running embedded in a React SPA, the JWT is written to
+  // localStorage AFTER our script has parsed. Poll aggressively for the first
+  // 30 seconds, then drop to a steady 30-sec heartbeat. We also hook into the
+  // `storage` event (works across tabs) and `aether:auth` (same-tab signal
+  // dispatched by the ERP shim in app.html).
+  let mountAttempts = 0;
+  function fastMountLoop(){
+    authCheck().then(ok => {
+      if (ok) return;
+      if (mountAttempts++ < 60) {              // 60 × 500ms = 30 seconds
+        setTimeout(fastMountLoop, 500);
+      }
+    });
+  }
+  fastMountLoop();
   setInterval(authCheck,    30000);
   setInterval(refreshBadge, 60000);
   // Re-check whenever localStorage changes (login/logout in other tab)
   window.addEventListener('storage', authCheck);
+  // Same-tab signal: ERP's app.html dispatches this when JWT is stored
+  window.addEventListener('aether:auth', authCheck);
+  // Also re-check whenever the tab regains focus
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) authCheck();
+  });
 
   window.Aether = {
     open: () => { if (panel) openPanel(); },

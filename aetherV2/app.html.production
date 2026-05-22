@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <meta name="theme-color" content="#000000"/>
+    <meta name="description" content="Dhrub Foundation ERP System"/>
+    <link rel="preconnect" href="https://fonts.googleapis.com"/>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Manrope:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+    <title>Dhrub Foundation ERP</title>
+
+    <!--
+      ── Aether early-auth bridge ─────────────────────────────────────
+      Patches localStorage so the moment React's login routine stores
+      the JWT, Aether's panel.js receives an instant `aether:auth`
+      event and the floating button appears without delay.
+      Must run BEFORE the React bundle.
+    -->
+    <script>
+    (function () {
+      try {
+        const setItem = Storage.prototype.setItem;
+        Storage.prototype.setItem = function (key, value) {
+          const wasEmpty = !this.getItem(key);
+          setItem.call(this, key, value);
+          // JWT-shaped tokens trigger Aether re-check
+          if (/^(access_token|token|authToken|auth_token|jwt|userToken)$/.test(key)) {
+            if (wasEmpty || value !== this.getItem(key)) {
+              window.dispatchEvent(new CustomEvent('aether:auth', { detail: { key } }));
+            }
+          }
+        };
+      } catch (e) { /* shim failures must never break login */ }
+    })();
+    </script>
+
+    <script defer="defer" src="static/js/main.be26a0f2.js"></script>
+    <link href="static/css/main.5d4a45a1.css" rel="stylesheet">
+    <link href="static/css/responsive.css" rel="stylesheet">
+    <link rel="icon" type="image/png" href="favicon.png">
+
+    <style>
+        /* ── CMS Floating Action Button (positioned LEFT so it doesn't clash with Aether) ── */
+        .cms-fab {
+            position: fixed;
+            bottom: 24px;
+            left: 24px;            /* moved from right to left */
+            z-index: 9998;          /* below Aether's 9999 */
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 12px;
+        }
+        .cms-fab-btn {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+            color: white;
+            padding: 14px 20px;
+            border-radius: 50px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.95rem;
+            box-shadow: 0 4px 20px rgba(99, 102, 241, 0.4);
+            transition: all 0.3s ease;
+        }
+        .cms-fab-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 25px rgba(99, 102, 241, 0.5);
+        }
+        .cms-fab-btn i { font-size: 1.1rem; }
+
+        @media (max-width: 768px) {
+            .cms-fab-btn span { display: none; }
+            .cms-fab-btn { padding: 16px; border-radius: 50%; }
+            /* On mobile, Aether goes bottom-right and CMS bottom-left
+               so neither overlaps the React app's own UI. */
+        }
+    </style>
+</head>
+<body>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <div id="root"></div>
+
+    <!-- ── CMS Floating Action Button (bottom-left, won't clash with Aether) ── -->
+    <div class="cms-fab">
+        <a href="cms/" class="cms-fab-btn" title="Content Management System">
+            <i class="fas fa-edit"></i>
+            <span>Manage Content (CMS)</span>
+        </a>
+    </div>
+
+    <!-- ── Aether v2 — autonomous ERP brain (drop-in module) ─────────
+         Relative path so it works on both dhrubfoundation.org/dhrub_erp/
+         AND erp.dhrubfoundation.org/ without code changes.
+         The early-auth bridge above ensures Aether's button appears
+         the moment the user logs in — no need to click anywhere. -->
+    <script src="aetherV2/panel.js" defer></script>
+
+    <!-- ── Aether v3 standalone-portal hint (open in new tab) ─────────
+         Visible only after auth; renders as a small text link in the
+         footer area if you want it. Optional. -->
+    <script>
+    document.addEventListener('aether:auth', function () {
+        // Surface a discreet portal link in the corner after a brief delay
+        // so users know they can open Aether full-screen.
+        setTimeout(function () {
+            if (document.getElementById('aether-portal-hint')) return;
+            const hint = document.createElement('a');
+            hint.id = 'aether-portal-hint';
+            hint.href = 'aetherV2/chat.php';
+            hint.target = '_blank';
+            hint.rel = 'noopener';
+            hint.title = 'Open Aether in its own window';
+            hint.innerHTML = '<i class="fa-solid fa-up-right-from-square"></i>';
+            hint.style.cssText = 'position:fixed;right:96px;bottom:34px;z-index:9997;width:32px;height:32px;border-radius:50%;background:rgba(15,23,42,.8);color:#10b981;display:flex;align-items:center;justify-content:center;text-decoration:none;font-size:13px;opacity:.7;transition:all .2s;backdrop-filter:blur(8px)';
+            hint.onmouseover = function(){ this.style.opacity = '1'; this.style.transform = 'scale(1.1)'; };
+            hint.onmouseout  = function(){ this.style.opacity = '.7'; this.style.transform = 'scale(1)'; };
+            document.body.appendChild(hint);
+        }, 2500);
+    });
+    </script>
+</body>
+</html>

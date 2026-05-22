@@ -1,0 +1,80 @@
+RewriteEngine On
+RewriteBase /
+
+# ─── CRITICAL: Pass Authorization header to PHP (Hostinger fix) ───────
+# Without this, the JWT in `Authorization: Bearer ...` gets stripped by
+# Apache before reaching PHP, breaking ALL authenticated API calls
+# including Aether's /aetherV2/api/*.
+SetEnvIf Authorization "(.*)" HTTP_AUTHORIZATION=$1
+RewriteCond %{HTTP:Authorization} ^(.*)$
+RewriteRule .* - [E=HTTP_AUTHORIZATION:%1]
+
+# ─── API routes → index.php ─────────────────────────────────────────
+RewriteCond %{REQUEST_URI} ^/api
+RewriteRule ^(.*)$ index.php [QSA,L]
+
+# ─── Aether v2 routes (let Apache serve the PHP/JS/CSS directly) ─────
+# This MUST come BEFORE the SPA fallback, otherwise React's router
+# will swallow /aetherV2/* requests and Aether will 404.
+RewriteCond %{REQUEST_URI} ^/aetherV2
+RewriteRule ^ - [L]
+
+# ─── CMS lives as real PHP/HTML files — let them through ─────────────
+# (The OLD .htaccess wrongly redirected /cms* back to /, breaking the
+#  Manage Content button entirely. Removed the 302 redirect.)
+RewriteCond %{REQUEST_URI} ^/cms
+RewriteRule ^ - [L]
+
+# ─── Static files pass through ───────────────────────────────────────
+RewriteCond %{REQUEST_FILENAME} -f
+RewriteRule ^ - [L]
+
+# ─── Directories with index files pass through ──────────────────────
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# ─── React SPA fallback → app.html (everything else) ────────────────
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ app.html [L]
+
+# ─── Security headers ────────────────────────────────────────────────
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "SAMEORIGIN"
+    Header set X-XSS-Protection "1; mode=block"
+    Header set Referrer-Policy "strict-origin-when-cross-origin"
+    # Allow JWT in the Authorization header for fetch() from same origin
+    Header set Access-Control-Expose-Headers "Authorization"
+</IfModule>
+
+# ─── Gzip compression ────────────────────────────────────────────────
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/css text/plain text/xml \
+        application/json application/javascript application/xml \
+        image/svg+xml font/woff font/woff2
+</IfModule>
+
+# ─── Cache static assets (1 month) ───────────────────────────────────
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType image/png             "access plus 1 month"
+    ExpiresByType image/jpeg            "access plus 1 month"
+    ExpiresByType image/svg+xml         "access plus 1 month"
+    ExpiresByType font/woff2            "access plus 1 year"
+    ExpiresByType application/font-woff2 "access plus 1 year"
+    # JS/CSS use hashed filenames already, so safe to cache for a year
+    ExpiresByType application/javascript "access plus 1 year"
+    ExpiresByType text/css              "access plus 1 year"
+</IfModule>
+
+# ─── Protect sensitive files ─────────────────────────────────────────
+<FilesMatch "\.(sql|log|bak|env|ini|conf|md)$">
+    Order deny,allow
+    Deny from all
+</FilesMatch>
+
+# Block direct access to includes / config from web
+<IfModule mod_rewrite.c>
+    RewriteRule ^(includes|config)/ - [F,L]
+</IfModule>

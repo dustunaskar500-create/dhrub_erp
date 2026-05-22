@@ -395,9 +395,89 @@ main { display: flex; flex-direction: column; min-height: 0; background: transpa
   font-style: italic; font-family: 'Crimson Pro';
 }
 
-@media (max-width: 720px) {
-  .welcome .suggestions { grid-template-columns: 1fr; }
-  .welcome h1 { font-size: 28px; }
+/* ── Sidebar hamburger toggle (mobile only) ── */
+.sidebar-toggle {
+  display: none;
+  position: fixed; top: 14px; left: 14px; z-index: 9000;
+  width: 40px; height: 40px; border-radius: 10px;
+  background: rgba(28, 36, 51, 0.85); backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--aev-text); font-size: 16px; cursor: pointer;
+  align-items: center; justify-content: center;
+  transition: all .15s;
+}
+.sidebar-toggle:hover { background: rgba(16, 185, 129, 0.18); color: var(--aev-primary-3); }
+.sidebar-backdrop {
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+  z-index: 89; backdrop-filter: blur(2px);
+}
+.sidebar-backdrop.show { display: block; animation: backdrop-fade-in .2s; }
+@keyframes backdrop-fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+/* ── Mobile (≤768px): sidebar becomes overlay drawer ── */
+@media (max-width: 768px) {
+  .app.show { grid-template-columns: 1fr !important; }
+  .sidebar-toggle { display: inline-flex; }
+  aside {
+    position: fixed; top: 0; left: 0; bottom: 0;
+    width: 280px; max-width: 85vw; z-index: 90;
+    transform: translateX(-100%);
+    transition: transform .25s ease;
+    box-shadow: 8px 0 24px rgba(0,0,0,.4);
+  }
+  aside.open { transform: translateX(0); }
+  .topbar { padding: 12px 16px 12px 64px; }
+  .topbar .title { font-size: 14px; }
+  .topbar .pill-btn { padding: 6px 10px; font-size: 11.5px; }
+  .topbar .pill-btn span,
+  .topbar .pill-btn .label { display: none; }
+  .topbar .pill-btn i { margin: 0; }
+  .chat-inner, .composer-inner { padding: 0 14px; }
+  .welcome { padding: 40px 14px; }
+  .welcome h1 { font-size: 26px; }
+  .welcome p { font-size: 14px; }
+  .welcome .mark-lg { width: 64px; height: 64px; margin-bottom: 20px; }
+  .welcome .suggestions { grid-template-columns: 1fr; gap: 10px; margin-top: 24px; }
+  .welcome .sugg { padding: 14px; }
+  .msg { padding: 16px 0; }
+  .msg-row { gap: 12px; }
+  .msg-content { font-size: 14px; line-height: 1.65; }
+  .msg-avatar { width: 30px; height: 30px; font-size: 12px; }
+  .composer { padding: 12px 14px 18px; }
+  .composer-row { padding: 7px 7px 7px 14px; }
+  .composer textarea { font-size: 14px; }
+  .composer-foot { font-size: 10.5px; }
+  .auth-card { padding: 32px 24px; max-width: calc(100vw - 24px); }
+  .auth-card h1 { font-size: 26px; }
+  .auth-card .sub { font-size: 14px; }
+}
+
+/* ── Tablet (≤960px): narrower sidebar, smaller paddings ── */
+@media (max-width: 960px) and (min-width: 769px) {
+  .app.show { grid-template-columns: 240px 1fr; }
+  .chat-inner, .composer-inner { padding: 0 20px; }
+}
+
+/* ── Very small screens (≤420px): tighter still ── */
+@media (max-width: 420px) {
+  .topbar { padding: 10px 12px 10px 58px; }
+  .welcome h1 { font-size: 22px; }
+  .welcome p { font-size: 13px; }
+  .composer { padding: 10px 10px 14px; }
+  .msg-content { font-size: 13.5px; }
+  .msg-content table { font-size: 11.5px; }
+  .msg-content th, .msg-content td { padding: 6px 8px; }
+  .msg-meta { font-size: 10.5px; gap: 6px; flex-wrap: wrap; }
+  .composer textarea { font-size: 13.5px; }
+}
+
+/* ── Landscape phones: reduce welcome padding ── */
+@media (max-height: 500px) and (orientation: landscape) {
+  .welcome { padding: 24px 16px; }
+  .welcome .mark-lg { width: 48px; height: 48px; margin-bottom: 12px; }
+  .welcome h1 { font-size: 22px; margin-bottom: 6px; }
+  .welcome p { margin-bottom: 16px; }
+  .welcome .suggestions { margin-top: 16px; }
 }
 
 /* Messages */
@@ -563,13 +643,6 @@ main { display: flex; flex-direction: column; min-height: 0; background: transpa
   background: url(logo.svg) center/contain no-repeat;
   filter: drop-shadow(0 0 14px rgba(16,185,129,.5));
 }
-
-/* Mobile */
-@media (max-width: 768px) {
-  .app.show { grid-template-columns: 1fr; }
-  aside { display: none; }
-  .chat-inner, .composer-inner { padding: 0 16px; }
-}
 </style>
 </head>
 <body>
@@ -604,7 +677,11 @@ main { display: flex; flex-direction: column; min-height: 0; background: transpa
 
 <!-- App -->
 <div class="app" id="app">
-  <aside>
+  <button class="sidebar-toggle" id="sidebar-toggle" aria-label="Toggle conversations" data-testid="sidebar-toggle">
+    <i class="fa-solid fa-bars"></i>
+  </button>
+  <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+  <aside id="sidebar">
     <div class="brand">
       <div class="mark"></div>
       <div>
@@ -684,13 +761,12 @@ main { display: flex; flex-direction: column; min-height: 0; background: transpa
 
   // ──────────── Logout ────────────
   function performLogout() {
-    if (!confirm('Sign out and return to the ERP, sir?')) return;
+    if (!confirm('Sign out, sir?')) return;
     // Wipe every place a token might live
     ['access_token','token','authToken','auth_token','jwt','userToken'].forEach(k => {
       try { localStorage.removeItem(k); } catch (e) {}
       try { sessionStorage.removeItem(k); } catch (e) {}
     });
-    // Wipe Aether conversation history (we are signing OUT — privacy first)
     try { localStorage.removeItem(STORE); } catch (e) {}
     // Tell the backend to forget the assistant memory for the current user
     if (token) {
@@ -703,10 +779,11 @@ main { display: flex; flex-direction: column; min-height: 0; background: transpa
         }).catch(() => {});
       } catch (e) {}
     }
-    // Stop any speech that's in progress
     try { window.speechSynthesis?.cancel(); } catch (e) {}
-    // Redirect to ERP — they handle their own session cleanup
-    window.location.href = ERP_URL;
+    // Reload Aether's chat page — without a token the inline sign-in form
+    // appears. User can then sign back in (without leaving Aether) OR
+    // click "Return to ERP" to go to the ERP home.
+    window.location.href = 'chat.php?signed_out=1';
   }
 
   // Wire the logout button (in sidebar) after DOM is ready
@@ -717,6 +794,30 @@ main { display: flex; flex-direction: column; min-height: 0; background: transpa
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', wireLogout);
   } else { wireLogout(); }
+
+  // ──────────── Mobile sidebar drawer ────────────
+  function wireSidebar() {
+    const toggle  = document.getElementById('sidebar-toggle');
+    const sidebar = document.getElementById('sidebar');
+    const backdrop = document.getElementById('sidebar-backdrop');
+    if (!toggle || !sidebar || !backdrop) return;
+    const open  = () => { sidebar.classList.add('open');    backdrop.classList.add('show'); };
+    const close = () => { sidebar.classList.remove('open'); backdrop.classList.remove('show'); };
+    toggle.addEventListener('click', () =>
+      sidebar.classList.contains('open') ? close() : open());
+    backdrop.addEventListener('click', close);
+    // Auto-close drawer when picking a conversation on mobile
+    sidebar.addEventListener('click', (e) => {
+      if (e.target.closest('.conv-item, .new-chat') && window.innerWidth <= 768) close();
+    });
+    // Close on Escape
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && sidebar.classList.contains('open')) close();
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', wireSidebar);
+  } else { wireSidebar(); }
 
   // ──────────── Auth ────────────
   function readToken() {
@@ -777,10 +878,21 @@ main { display: flex; flex-direction: column; min-height: 0; background: transpa
 
   async function bootstrap() {
     token = readToken();
+
+    // If we arrived here via ?signed_out=1, show a friendly note
+    const params = new URLSearchParams(location.search);
+    const justSignedOut = params.get('signed_out') === '1';
+
     if (!token) {
-      showAuth('Sign in to meet Aether',
-        'Aether is your foundation\'s butler-in-residence. To preserve the discretion of the estate, you must first sign in to your ERP. Your role and permissions are confirmed there before any confidential matters are discussed.',
-        true);
+      const subtitle = justSignedOut
+        ? 'You have been signed out. Sign in again to resume our conversation, sir.'
+        : "I am Aether — butler-in-residence to the foundation. Kindly identify yourself so I may verify your standing before any matters of the estate are discussed.";
+      const titleText = justSignedOut ? 'You have signed out.' : 'At your service.';
+      showAuth(titleText, subtitle, true);
+      // Clean the URL so a refresh doesn't keep showing the same hint
+      if (justSignedOut) {
+        history.replaceState({}, '', location.pathname);
+      }
       return;
     }
     try {
