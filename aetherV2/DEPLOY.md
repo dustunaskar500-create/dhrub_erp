@@ -17,6 +17,15 @@ your server with full features:
 
 ## 0 · What you need before you start
 
+> 💡 **Important fact about the database**: Aether shares the **same MariaDB
+> database** as your ERP (`DB_NAME=u135884328_dhrub_erp` or whatever you've
+> named it). It does NOT need a separate DB. Aether's own state lives in
+> tables prefixed `aether_*` (audit log, knowledge graph, action plans,
+> chat memory, etc.) and it reads/writes your existing `donations`,
+> `donors`, `expenses`, `employees`, etc. tables directly. This is why
+> reports, KPI drill-downs, and compliance reports are always **live** —
+> there's no sync layer between Aether and the ERP.
+
 | Requirement | How to verify |
 |---|---|
 | PHP 8.0+ with `pdo_mysql`, `mbstring`, `curl`, `gd`, `xml`, `openssl` | SSH: `php -v && php -m` |

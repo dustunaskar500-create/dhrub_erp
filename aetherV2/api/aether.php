@@ -603,6 +603,20 @@ try {
             ]);
         }
 
+        // ── Logout: wipe Aether's chat memory + pending intents ─────────
+        // Privacy-first: any conversational context (which may include
+        // mentions of donors, amounts, etc.) is purged for this user.
+        // The JWT itself is invalidated by the ERP — Aether just clears
+        // what it remembered.
+        case 'logout': {
+            try { $db->prepare("DELETE FROM aether_chat_memory WHERE user_id = ?")->execute([$user['id']]); } catch (\Throwable $e) {}
+            try { $db->prepare("DELETE FROM aether_pending_intents WHERE user_id = ?")->execute([$user['id']]); } catch (\Throwable $e) {}
+            try { $db->prepare("DELETE FROM aether_memory WHERE user_id = ?")->execute([$user['id']]); } catch (\Throwable $e) {}
+            AetherAudit::log('logout', 'User signed out of Aether',
+                ['user_id' => $user['id']], 'low', $user['id']);
+            aether_json(['action' => 'logout', 'ok' => true]);
+        }
+
         default:
             aether_error("Unknown action: $action", 400);
     }

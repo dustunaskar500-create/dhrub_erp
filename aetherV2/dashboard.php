@@ -13,6 +13,9 @@
  *   • Knowledge Graph — Entity browser, modules
  *   • Audit Trail     — Full audit log with severity filter
  */
+require_once __DIR__ . '/api/config.php';
+$erpUrl = AETHER_ERP_URL;
+$erpLogin = AETHER_ERP_LOGIN;
 ?><!doctype html>
 <html lang="en">
 <head>
@@ -34,14 +37,14 @@
     <div class="aev-mark-lg"></div>
     <h3 id="overlay-title">Sign in to access Aether</h3>
     <p id="overlay-msg">Aether's Command Centre is restricted. Sign in to your ERP first to access live system data.</p>
-    <a class="aev-btn primary" href="/" data-testid="overlay-login-link"><i class="fa-solid fa-arrow-left"></i> Go to ERP login</a>
+    <a class="aev-btn primary" href="<?= htmlspecialchars($erpLogin) ?>" data-testid="overlay-login-link"><i class="fa-solid fa-arrow-left"></i> Go to ERP login</a>
     <div id="overlay-role-tag" class="role-required" style="display:none">SUPER ADMIN ONLY</div>
   </div>
 </div>
 
 <div class="aev-app" id="app" style="display:none">
   <header class="aev-topbar">
-    <a class="aev-back" href="/" data-testid="back-to-erp"><i class="fa-solid fa-arrow-left"></i> Back to ERP</a>
+    <a class="aev-back" href="<?= htmlspecialchars($erpUrl) ?>" data-testid="back-to-erp"><i class="fa-solid fa-arrow-left"></i> Back to ERP</a>
     <div class="aev-brand">
       <div class="aev-mark"></div>
       <div>

@@ -64,6 +64,12 @@ if (!defined('AETHER_LLM_FALLBACK')) define('AETHER_LLM_FALLBACK', $pick('AETHER
 if (!defined('AETHER_LLM_THRESHOLD'))define('AETHER_LLM_THRESHOLD',(float)$pick('AETHER_LLM_THRESHOLD','0.55'));
 if (!defined('AETHER_LLM_MAX_TOKENS'))define('AETHER_LLM_MAX_TOKENS',(int)$pick('AETHER_LLM_MAX_TOKENS','1200'));
 
+// ── ERP integration URLs (where "Back to ERP" + logout redirects land) ──
+// Used by chat.php + dashboard.php to keep navigation consistent on production.
+if (!defined('AETHER_ERP_URL'))    define('AETHER_ERP_URL',    rtrim($pick('ERP_URL',    'https://erp.dhrubfoundation.org/'), '/') . '/');
+if (!defined('AETHER_ERP_LOGIN'))  define('AETHER_ERP_LOGIN',  rtrim($pick('ERP_LOGIN',  AETHER_ERP_URL . 'login'), '/'));
+if (!defined('AETHER_ERP_LOGOUT'))define('AETHER_ERP_LOGOUT', rtrim($pick('ERP_LOGOUT', AETHER_ERP_URL . 'logout'), '/'));
+
 date_default_timezone_set($pick('TIMEZONE', 'Asia/Kolkata'));
 ini_set('display_errors', '0');
 ini_set('log_errors', '1');

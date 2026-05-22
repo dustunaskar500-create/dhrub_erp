@@ -11,12 +11,12 @@
  *   • Reads RBAC scope so a viewer cannot extract donor PII via this UI
  *   • Supports streaming + voice + conversation switching
  *
- * If the visitor is NOT logged in, the page asks them to sign in to the ERP
- * first (same overlay used by dashboard.php). It does NOT accept fresh email
- * + password directly — the JWT must already be in localStorage from the ERP
- * front-end, which keeps the trust boundary clean and avoids credential
- * duplication.
+ * If the visitor is NOT logged in, the page shows an inline sign-in form.
+ * Successful login stores the JWT in localStorage and reloads.
  */
+require_once __DIR__ . '/api/config.php';
+$erpUrl   = AETHER_ERP_URL;
+$erpLogin = AETHER_ERP_LOGIN;
 ?><!doctype html>
 <html lang="en">
 <head>
@@ -279,8 +279,20 @@ aside .user-avatar {
 aside .user-info { flex: 1; min-width: 0; }
 aside .user-info .name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--aev-text); }
 aside .user-info .role { font-size: 10.5px; color: var(--aev-primary-2); text-transform: uppercase; letter-spacing: 0.07em; font-weight: 600; }
-aside .user-card .menu-btn { background: transparent; border: 1px solid rgba(255,255,255,0.08); color: var(--aev-text-3); cursor: pointer; padding: 7px 9px; border-radius: 8px; transition: all .15s; }
-aside .user-card .menu-btn:hover { color: var(--aev-bad); border-color: rgba(239,68,68,0.3); }
+aside .user-card .menu-btn {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.08);
+  color: var(--aev-text-3);
+  cursor: pointer; padding: 7px 9px;
+  border-radius: 8px; transition: all .15s;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px;
+  font-size: 12px;
+  text-decoration: none;
+}
+aside .user-card .menu-btn:hover { color: var(--aev-text); border-color: rgba(255,255,255,0.18); background: rgba(255,255,255,0.04); }
+aside .user-card .logout-btn:hover { color: var(--aev-bad); border-color: rgba(239,68,68,0.45); background: rgba(239,68,68,0.08); }
+aside .user-card .user-actions { display: flex; flex-direction: column; gap: 5px; }
 
 /* Main panel */
 main { display: flex; flex-direction: column; min-height: 0; background: transparent; }
@@ -583,7 +595,7 @@ main { display: flex; flex-direction: column; min-height: 0; background: transpa
 
     <div class="auth-divider"><span>or</span></div>
     <div class="auth-alt">
-      <a href="/" class="btn-secondary" data-testid="auth-erp-home"><i class="fa-solid fa-house"></i> Return to ERP home</a>
+      <a href="<?= htmlspecialchars($erpUrl) ?>" class="btn-secondary" data-testid="auth-erp-home"><i class="fa-solid fa-house"></i> Return to ERP home</a>
     </div>
 
     <div class="footnote">If you reached this page from your ERP, your session may have lapsed. Sign in again above.</div>
@@ -611,7 +623,10 @@ main { display: flex; flex-direction: column; min-height: 0; background: transpa
         <div class="name" id="user-name">…</div>
         <div class="role" id="user-role">…</div>
       </div>
-      <a href="/dhrub_erp/" class="menu-btn" title="Back to ERP"><i class="fa-solid fa-right-from-bracket"></i></a>
+      <div class="user-actions">
+        <a href="<?= htmlspecialchars($erpUrl) ?>" class="menu-btn" title="Back to ERP" data-testid="back-to-erp"><i class="fa-solid fa-arrow-left"></i></a>
+        <button type="button" id="logout-btn" class="menu-btn logout-btn" title="Sign out of Aether & ERP" data-testid="logout-btn"><i class="fa-solid fa-right-from-bracket"></i></button>
+      </div>
     </div>
   </aside>
 
@@ -623,7 +638,7 @@ main { display: flex; flex-direction: column; min-height: 0; background: transpa
           <i class="fa-solid fa-volume-high"></i> Voice off
         </button>
         <a href="dashboard.php" class="pill-btn" title="Open the dashboard"><i class="fa-solid fa-gauge-high"></i> Dashboard</a>
-        <a href="/dhrub_erp/" class="pill-btn"><i class="fa-solid fa-arrow-left"></i> ERP</a>
+        <a href="<?= htmlspecialchars($erpUrl) ?>" class="pill-btn"><i class="fa-solid fa-arrow-left"></i> ERP</a>
       </div>
     </div>
 
@@ -659,11 +674,49 @@ main { display: flex; flex-direction: column; min-height: 0; background: transpa
   // ──────────── State ────────────
   const API = 'api/aether.php';
   const STORE = 'aether_conv_history';
+  const ERP_URL = <?= json_encode($erpUrl) ?>;
+  const ERP_LOGOUT = <?= json_encode($erpLogin) ?>;
   let token = '';
   let me = null;
   let currentConv = null;
   let isStreaming = false;
   let voiceOn = false;
+
+  // ──────────── Logout ────────────
+  function performLogout() {
+    if (!confirm('Sign out and return to the ERP, sir?')) return;
+    // Wipe every place a token might live
+    ['access_token','token','authToken','auth_token','jwt','userToken'].forEach(k => {
+      try { localStorage.removeItem(k); } catch (e) {}
+      try { sessionStorage.removeItem(k); } catch (e) {}
+    });
+    // Wipe Aether conversation history (we are signing OUT — privacy first)
+    try { localStorage.removeItem(STORE); } catch (e) {}
+    // Tell the backend to forget the assistant memory for the current user
+    if (token) {
+      try {
+        fetch(API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+          body: JSON.stringify({ action: 'logout' }),
+          keepalive: true,
+        }).catch(() => {});
+      } catch (e) {}
+    }
+    // Stop any speech that's in progress
+    try { window.speechSynthesis?.cancel(); } catch (e) {}
+    // Redirect to ERP — they handle their own session cleanup
+    window.location.href = ERP_URL;
+  }
+
+  // Wire the logout button (in sidebar) after DOM is ready
+  function wireLogout() {
+    const btn = document.getElementById('logout-btn');
+    if (btn) btn.addEventListener('click', performLogout);
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', wireLogout);
+  } else { wireLogout(); }
 
   // ──────────── Auth ────────────
   function readToken() {
