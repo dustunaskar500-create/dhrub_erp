@@ -27,36 +27,39 @@ $erpLogin = AETHER_ERP_LOGIN;
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Manrope:wght@300;400;500;600;700&family=Crimson+Pro:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link rel="stylesheet" href="static/theme.css">
+<script src="static/theme.js"></script>
 <link rel="icon" type="image/svg+xml" href="logo.svg">
 <style>
 :root {
-  --aev-bg:        #0a0e13;
-  --aev-bg-2:      #131922;
-  --aev-bg-3:      #1c2433;
-  --aev-line:      #2a3548;
-  --aev-line-2:    #3a4761;
-  --aev-text:      #e8eef5;
-  --aev-text-2:    #aeb9c8;
-  --aev-text-3:    #6b7689;
-  --aev-primary:   #10b981;
-  --aev-primary-2: #34d399;
-  --aev-primary-3: #6ee7b7;
-  --aev-primary-bg:#062f23;
-  --aev-violet:    #a78bfa;
-  --aev-violet-2:  #8b5cf6;
-  --aev-rose:      #f472b6;
-  --aev-amber:     #fbbf24;
-  --aev-gold:      #d4a747;
-  --aev-bad:       #ef4444;
-  --aev-warn:      #f59e0b;
-  --aev-info:      #38bdf8;
-  --aev-gradient-1: linear-gradient(135deg, #10b981 0%, #06d6a0 100%);
-  --aev-gradient-2: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
-  --aev-gradient-3: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+  /* Map Aether chat tokens to the shared theme tokens (theme.css) */
+  --aev-bg:        var(--bg);
+  --aev-bg-2:      var(--bg-2);
+  --aev-bg-3:      var(--bg-3);
+  --aev-line:      var(--line);
+  --aev-line-2:    var(--line-2);
+  --aev-text:      var(--text);
+  --aev-text-2:    var(--text-2);
+  --aev-text-3:    var(--text-3);
+  --aev-primary:   var(--primary);
+  --aev-primary-2: var(--primary-2);
+  --aev-primary-3: var(--primary-3);
+  --aev-primary-bg:var(--primary-soft);
+  --aev-violet:    var(--violet);
+  --aev-violet-2:  var(--violet-2);
+  --aev-rose:      var(--rose);
+  --aev-amber:     var(--amber);
+  --aev-gold:      var(--gold);
+  --aev-bad:       var(--bad);
+  --aev-warn:      var(--warn);
+  --aev-info:      var(--info);
+  --aev-gradient-1: var(--grad-1);
+  --aev-gradient-2: var(--grad-2);
+  --aev-gradient-3: var(--grad-3);
   --aev-gradient-glow: linear-gradient(135deg, rgba(16,185,129,0.18), rgba(139,92,246,0.12));
-  --shadow-glow:   0 0 0 4px rgba(16,185,129,.18);
-  --shadow-card:   0 12px 40px rgba(0,0,0,.5);
-  --shadow-elev:   0 4px 24px rgba(0,0,0,.45);
+  --shadow-glow:   0 0 0 4px var(--primary-soft);
+  --shadow-card:   var(--shadow-2);
+  --shadow-elev:   var(--shadow-1);
 }
 
 * { box-sizing: border-box; }
@@ -206,10 +209,10 @@ a:hover { color: var(--aev-primary-3); }
 
 /* Sidebar */
 aside {
-  background: linear-gradient(180deg, rgba(19, 25, 34, 0.9) 0%, rgba(10, 14, 19, 0.95) 100%);
+  background: var(--aev-bg-2);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border-right: 1px solid rgba(255,255,255,0.06);
+  border-right: 1px solid var(--aev-line);
   display: flex; flex-direction: column; min-height: 0;
   position: relative;
 }
@@ -219,15 +222,13 @@ aside::after {
 }
 aside .brand {
   padding: 20px 20px 16px; display: flex; align-items: center; gap: 12px;
-  border-bottom: 1px solid rgba(255,255,255,0.05);
+  border-bottom: 1px solid var(--aev-line);
 }
 aside .brand .mark { width: 36px; height: 36px; flex-shrink: 0; }
 aside .brand h2 {
   margin: 0; font-family: 'Outfit'; font-weight: 600; font-size: 17px;
   letter-spacing: -0.02em;
-  background: linear-gradient(135deg, #fff 0%, var(--aev-primary-3) 100%);
-  -webkit-background-clip: text; background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: var(--aev-text);
 }
 aside .brand .sub { font-family: 'Crimson Pro'; font-style: italic; font-size: 12px; color: var(--aev-text-3); margin-top: 2px; }
 
@@ -255,7 +256,7 @@ aside .conv-item {
   display: flex; align-items: center; gap: 9px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-aside .conv-item:hover { background: rgba(255,255,255,0.04); color: var(--aev-text); }
+aside .conv-item:hover { background: var(--aev-bg-3); color: var(--aev-text); }
 aside .conv-item.active {
   background: linear-gradient(135deg, rgba(16,185,129,0.12), rgba(139,92,246,0.06));
   color: var(--aev-primary-3);
@@ -265,9 +266,9 @@ aside .conv-item.active {
 aside .conv-item i { font-size: 11px; opacity: 0.6; flex-shrink: 0; }
 
 aside .user-card {
-  border-top: 1px solid rgba(255,255,255,0.05);
+  border-top: 1px solid var(--aev-line);
   padding: 14px 16px; display: flex; align-items: center; gap: 11px;
-  background: rgba(10, 14, 19, 0.5);
+  background: var(--aev-bg-3);
 }
 aside .user-avatar {
   width: 38px; height: 38px; border-radius: 50%;
@@ -298,9 +299,9 @@ aside .user-card .user-actions { display: flex; flex-direction: column; gap: 5px
 main { display: flex; flex-direction: column; min-height: 0; background: transparent; }
 
 .topbar {
-  padding: 14px 26px; border-bottom: 1px solid rgba(255,255,255,0.05);
+  padding: 14px 26px; border-bottom: 1px solid var(--aev-line);
   display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-shrink: 0;
-  background: rgba(10, 14, 19, 0.6);
+  background: var(--aev-bg-2);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
 }
@@ -319,7 +320,7 @@ main { display: flex; flex-direction: column; min-height: 0; background: transpa
 .topbar .pill-btn:hover {
   border-color: var(--aev-primary);
   color: var(--aev-primary-2);
-  background: rgba(16,185,129,0.06);
+  background: var(--primary-soft);
   transform: translateY(-1px);
 }
 .topbar .pill-btn.active {
@@ -347,9 +348,7 @@ main { display: flex; flex-direction: column; min-height: 0; background: transpa
 .welcome h1 {
   font-family: 'Crimson Pro'; font-style: italic; font-weight: 500;
   font-size: 38px; margin: 0 0 12px; letter-spacing: -0.015em;
-  background: linear-gradient(135deg, #fff 0%, var(--aev-primary-3) 50%, var(--aev-violet) 100%);
-  -webkit-background-clip: text; background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: var(--aev-text);
 }
 .welcome p {
   font-family: 'Crimson Pro', Georgia, serif;
@@ -362,8 +361,8 @@ main { display: flex; flex-direction: column; min-height: 0; background: transpa
 .welcome .suggestions { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-top: 36px; }
 .welcome .sugg {
   padding: 18px 20px;
-  background: linear-gradient(135deg, rgba(28, 36, 51, 0.6) 0%, rgba(19, 25, 34, 0.6) 100%);
-  border: 1px solid rgba(255,255,255,0.06);
+  background: var(--aev-bg-3);
+  border: 1px solid var(--aev-line);
   border-radius: 14px; cursor: pointer; text-align: left;
   transition: all .2s ease;
   position: relative; overflow: hidden;
@@ -481,10 +480,10 @@ main { display: flex; flex-direction: column; min-height: 0; background: transpa
 }
 
 /* Messages */
-.msg { padding: 22px 0; border-bottom: 1px solid rgba(255,255,255,.04); }
+.msg { padding: 22px 0; border-bottom: 1px solid var(--aev-line); }
 .msg.user { background: transparent; }
 .msg.assistant {
-  background: linear-gradient(180deg, rgba(16,185,129,0.025) 0%, rgba(139,92,246,0.015) 100%);
+  background: var(--primary-soft);
 }
 .msg-row { display: flex; gap: 16px; align-items: flex-start; }
 .msg-avatar {
@@ -597,10 +596,10 @@ main { display: flex; flex-direction: column; min-height: 0; background: transpa
 .composer-inner { max-width: 820px; margin: 0 auto; }
 .composer-row {
   display: flex; align-items: flex-end; gap: 8px;
-  background: linear-gradient(180deg, rgba(28, 36, 51, 0.7) 0%, rgba(19, 25, 34, 0.7) 100%);
+  background: var(--aev-bg-3);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255,255,255,0.08);
+  border: 1px solid var(--aev-line);
   border-radius: 16px;
   padding: 9px 9px 9px 18px;
   transition: border-color .2s, box-shadow .2s;
@@ -620,7 +619,7 @@ main { display: flex; flex-direction: column; min-height: 0; background: transpa
   border-radius: 9px; cursor: pointer; font-size: 15px; transition: all .15s;
   display: inline-flex; align-items: center; justify-content: center;
 }
-.composer .icon-btn:hover { background: rgba(255,255,255,0.04); color: var(--aev-text); }
+.composer .icon-btn:hover { background: var(--primary-soft); color: var(--aev-text); }
 .composer .icon-btn.mic-btn.recording {
   color: var(--aev-bad);
   background: rgba(239,68,68,0.08);
@@ -636,6 +635,31 @@ main { display: flex; flex-direction: column; min-height: 0; background: transpa
 .composer-foot { font-size: 11.5px; color: var(--aev-text-3); text-align: center; margin-top: 12px; font-family: 'Crimson Pro'; font-style: italic; }
 .composer-foot .indicator { color: var(--aev-primary-2); font-style: normal; font-family: 'Manrope'; }
 .composer-foot code { background: rgba(255,255,255,0.05); padding: 1px 6px; border-radius: 4px; font-size: 10.5px; font-family: 'JetBrains Mono'; font-style: normal; }
+/* Attachment chips */
+.composer-attachments { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.attach-chip {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 5px 9px 5px 10px; border-radius: 999px;
+  background: rgba(16,185,129,0.10); border: 1px solid rgba(16,185,129,0.3);
+  color: var(--aev-text); font-size: 12px; font-family: 'Manrope';
+  max-width: 240px; animation: chip-in .2s ease;
+}
+.attach-chip i { color: var(--aev-primary-2); font-size: 12px; }
+.attach-chip .attach-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.attach-chip .attach-size { color: var(--aev-text-3); font-size: 10.5px; font-family: 'JetBrains Mono'; }
+.attach-chip .attach-remove {
+  background: transparent; border: none; color: var(--aev-text-3); cursor: pointer;
+  padding: 0; width: 18px; height: 18px; border-radius: 50%; display: inline-flex;
+  align-items: center; justify-content: center; transition: all .15s;
+}
+.attach-chip .attach-remove:hover { background: rgba(239,68,68,0.18); color: #fca5a5; }
+@keyframes chip-in { from { transform: translateY(4px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+/* Attach button hover */
+.composer .attach-btn:hover { color: var(--aev-primary-2); background: rgba(16,185,129,0.08); }
+.composer .attach-btn:hover i { transform: rotate(-15deg); }
+.composer .attach-btn i { transition: transform .15s; }
+
 
 /* Mark = animated logo */
 .mark {
@@ -714,6 +738,7 @@ main { display: flex; flex-direction: column; min-height: 0; background: transpa
         <button class="pill-btn" id="voice-toggle" data-testid="voice-toggle" title="Read replies aloud">
           <i class="fa-solid fa-volume-high"></i> Voice off
         </button>
+        <button class="theme-toggle" id="theme-toggle-btn" data-testid="theme-toggle" title="Toggle light/dark theme"></button>
         <a href="erp/" class="pill-btn" title="Stock &amp; GST Billing"><i class="fa-solid fa-boxes-stacked"></i> Stock &amp; GST</a>
         <a href="dashboard.php" class="pill-btn" title="Open the dashboard"><i class="fa-solid fa-gauge-high"></i> Dashboard</a>
         <a href="<?= htmlspecialchars($erpUrl) ?>" class="pill-btn"><i class="fa-solid fa-arrow-left"></i> ERP</a>
@@ -735,9 +760,12 @@ main { display: flex; flex-direction: column; min-height: 0; background: transpa
       <div class="composer-inner">
         <div class="composer-row">
           <textarea id="input" placeholder="Speak your mind, sir…" rows="1" data-testid="chat-input"></textarea>
+          <button class="icon-btn attach-btn" id="attach-btn" data-testid="chat-attach" title="Attach a file"><i class="fa-solid fa-paperclip"></i></button>
+          <input type="file" id="attach-input" multiple accept="image/*,video/*,application/pdf,text/csv,.csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain" style="display:none">
           <button class="icon-btn mic-btn" id="mic-btn" data-testid="mic-btn" title="Voice input"><i class="fa-solid fa-microphone"></i></button>
           <button class="icon-btn send-btn" id="send-btn" data-testid="chat-send" title="Send"><i class="fa-solid fa-paper-plane"></i></button>
         </div>
+        <div class="composer-attachments" id="composer-attachments"></div>
         <div class="composer-foot">
           Aether may take a moment to ponder. Press <code>Enter</code> to send, <code>Shift+Enter</code> for a new line.
           <span class="indicator" id="hot-indicator"></span>
@@ -1286,6 +1314,105 @@ main { display: flex; flex-direction: column; min-height: 0; background: transpa
       : '<i class="fa-solid fa-volume-xmark"></i> Voice off';
     if (!voiceOn) window.speechSynthesis?.cancel();
   });
+
+  // ──────────── Theme toggle ────────────
+  if (window.AetherTheme) {
+    window.AetherTheme.bindButton(document.getElementById('theme-toggle-btn'));
+  }
+
+  // ──────────── File attachments + drag & drop ────────────
+  const pendingAttachments = [];
+  const attachInput = document.getElementById('attach-input');
+  const attachBtn = document.getElementById('attach-btn');
+  const attachmentsHost = document.getElementById('composer-attachments');
+
+  function renderAttachments() {
+    if (!pendingAttachments.length) { attachmentsHost.innerHTML = ''; return; }
+    attachmentsHost.innerHTML = pendingAttachments.map((a, idx) => {
+      const icon = a.type.startsWith('image/') ? 'image'
+                  : a.type.startsWith('video/') ? 'film'
+                  : (a.name.match(/\.csv$/i) || a.type.includes('csv') || a.type.includes('sheet')) ? 'file-csv'
+                  : a.type.includes('pdf') ? 'file-pdf'
+                  : 'file-lines';
+      const kb = (a.size / 1024).toFixed(1);
+      return `<div class="attach-chip" data-att-idx="${idx}">
+        <i class="fa-solid fa-${icon}"></i>
+        <span class="attach-name">${escapeHtml(a.name)}</span>
+        <span class="attach-size">${kb} KB</span>
+        <button class="attach-remove" data-remove="${idx}" aria-label="Remove">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>`;
+    }).join('');
+    attachmentsHost.querySelectorAll('[data-remove]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const i = +btn.dataset.remove;
+        pendingAttachments.splice(i, 1);
+        renderAttachments();
+      });
+    });
+  }
+  function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
+  }
+  function queueFiles(files) {
+    for (const f of files) {
+      if (f.size > 64 * 1024 * 1024) {
+        alert(`"${f.name}" exceeds the 64 MB limit, sir.`);
+        continue;
+      }
+      pendingAttachments.push(f);
+    }
+    renderAttachments();
+    input.focus();
+  }
+  attachBtn.addEventListener('click', () => attachInput.click());
+  attachInput.addEventListener('change', (e) => {
+    queueFiles([].slice.call(e.target.files || []));
+    attachInput.value = '';
+  });
+  // Drag-and-drop anywhere over the main content
+  if (window.AetherDnD) {
+    window.AetherDnD.attach(document.querySelector('main') || document.body, {
+      message: 'Drop files to share with Aether',
+      hint: 'Images, videos, PDFs, CSV — released here',
+      onFiles: queueFiles,
+    });
+  }
+
+  // ──────────── Override sendMessage to include attachments ────────────
+  const _origSendMessage = sendMessage;
+  sendMessage = async function (text) {
+    if (!pendingAttachments.length) return _origSendMessage(text);
+    text = (text || document.getElementById('input').value).trim();
+    if (isStreaming) return;
+    if (!text) text = '(attachment)';
+
+    // Upload attachments first
+    const uploaded = [];
+    for (const f of pendingAttachments) {
+      try {
+        const fd = new FormData();
+        fd.append('file', f);
+        const r = await fetch(API + '?action=upload_attachment', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + token },
+          body: fd,
+        });
+        const j = await r.json();
+        if (j.ok) uploaded.push(j);
+      } catch (e) {}
+    }
+    pendingAttachments.length = 0;
+    renderAttachments();
+
+    // Append attachment summary into the message
+    if (uploaded.length) {
+      const list = uploaded.map(u => `• [${u.original_name}](${u.url}) (${u.kind})`).join('\n');
+      text = text + '\n\n_Attached files (' + uploaded.length + '):_\n' + list;
+    }
+    return _origSendMessage(text);
+  };
 
   // ──────────── Init ────────────
   bootstrap();

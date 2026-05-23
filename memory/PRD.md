@@ -5,6 +5,19 @@ Design and develop an advanced, self-sufficient AI system named **Aether** integ
 
 ## Latest user request (Feb 2026)
 > "enhance both aether & erp system, also include a stock tracking system in erp according to general standard stock receiving process including receiving docs, photos & video evidences upload for & future shortage damage excess profit & loss tracking, update proper tax invoice & bill generation process for later GST related accounting work"
+> "i want you to also include drag & drop and dark mode light to aether & design the UI/UX colors according to ERP system feature to aether"
+> "dark mode is not fully optimised, look want you to include Stock & gst module to dhurb_erp files which i gave you earlier, as its a part of ERP not aether"
+
+## Outcomes (current session)
+1. **Stock module integrated INTO dhrub_erp** at `/app/erp_workspace/erp_src/stock_module/`
+   - JWT-bridge auth re-uses dhrub_erp's existing `users`/`roles` schema (LEFT JOIN on `role_id` → `roles.role_name`)
+   - DB connection auto-discovers `Database::getInstance()` if present, else falls back to `.env` / constants
+   - Mounts at `/stock_module/` once unzipped to ERP web root — no changes needed to `index.php`
+   - Packaged as `/app/stock_module_deploy.zip` (69 KB) — ready to drop on Hostinger
+   - Full INSTALL.md walk-through included
+2. **Light / Dark theme** — shared `theme.css` + `theme.js` tokens across Aether chat, dashboard, and stock module. Toggle persists in `localStorage['aether-theme']`. Respects OS `prefers-color-scheme`.
+3. **Drag-and-drop file upload in Aether chat** — drop files anywhere in the chat to attach to a message; new `upload_attachment` endpoint stores under `/app/uploads/chat/{user_id}/`. Files appear as chips in composer; sent with the next message.
+4. **ERP-harmonized palette** — Aether and stock module now share the same emerald-primary / violet-secondary semantic tokens.
 
 ## What has been built
 

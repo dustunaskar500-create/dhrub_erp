@@ -18,7 +18,9 @@ $orgName = erp_setting('org_name', 'Dhrub Foundation');
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Manrope:wght@300;400;500;600;700&family=Crimson+Pro:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <link rel="icon" type="image/svg+xml" href="/aetherV2/logo.svg">
+<link rel="stylesheet" href="/aetherV2/static/theme.css">
 <link rel="stylesheet" href="/aetherV2/erp/static/erp.css">
+<script src="/aetherV2/static/theme.js"></script>
 </head>
 <body>
 <div id="app">

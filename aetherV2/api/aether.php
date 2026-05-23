@@ -617,6 +617,65 @@ try {
             aether_json(['action' => 'logout', 'ok' => true]);
         }
 
+        // ── Upload an attachment from chat (image / video / pdf / csv) ──
+        // Multipart 'file' upload. Stored under /app/uploads/chat/<user>/...
+        case 'upload_attachment': {
+            if (!isset($_FILES['file'])) aether_error('file required', 400);
+            $f = $_FILES['file'];
+            if (!is_uploaded_file($f['tmp_name'] ?? '')) aether_error('Upload failed', 400);
+
+            $allowed = ['image/jpeg','image/png','image/webp','image/gif','image/heic','image/heif',
+                        'video/mp4','video/quicktime','video/webm','video/x-matroska','video/mpeg',
+                        'application/pdf',
+                        'text/csv','application/csv','application/vnd.ms-excel',
+                        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                        'text/plain'];
+            $mime = mime_content_type($f['tmp_name']) ?: ($f['type'] ?? 'application/octet-stream');
+            $okType = in_array($mime, $allowed, true)
+                   || str_starts_with($mime, 'image/')
+                   || str_starts_with($mime, 'video/');
+            if (!$okType) aether_error('File type not allowed: ' . $mime, 415);
+            if (($f['size'] ?? 0) > 64 * 1024 * 1024) aether_error('File exceeds 64 MB', 413);
+
+            $dir = '/app/uploads/chat/' . (int)$user['id'];
+            if (!is_dir($dir)) @mkdir($dir, 0775, true);
+            $safe = preg_replace('/[^A-Za-z0-9._-]/', '_', $f['name'] ?: 'upload.bin');
+            $name = date('Ymd_His') . '_' . bin2hex(random_bytes(3)) . '_' . $safe;
+            $abs  = $dir . '/' . $name;
+            if (!move_uploaded_file($f['tmp_name'], $abs)) aether_error('Could not store file', 500);
+
+            // Kind classification
+            $kind = 'document';
+            if (str_starts_with($mime, 'image/')) $kind = 'image';
+            elseif (str_starts_with($mime, 'video/')) $kind = 'video';
+            elseif ($mime === 'application/pdf') $kind = 'pdf';
+            elseif (in_array($mime, ['text/csv','application/csv'], true) || preg_match('/\.csv$/i', $safe)) $kind = 'csv';
+            elseif (str_contains($mime, 'sheet') || preg_match('/\.xlsx?$/i', $safe)) $kind = 'spreadsheet';
+
+            $url = '/uploads/chat/' . (int)$user['id'] . '/' . $name;
+
+            // Persist a note in chat memory so the butler can refer back to it
+            try {
+                $conv = (string)($_POST['conversation_id'] ?? 'standalone');
+                $db->prepare("INSERT INTO aether_chat_memory (user_id, conversation_id, role, content)
+                              VALUES (?,?,?,?)")
+                   ->execute([(int)$user['id'], $conv, 'system',
+                              "User attached: {$f['name']} ({$kind}, " . round(($f['size'] ?? 0) / 1024, 1) . " KB) at {$url}"]);
+            } catch (\Throwable $e) {}
+
+            AetherAudit::log('chat_attachment', "Attached $kind: {$f['name']}",
+                ['url' => $url, 'size' => (int)$f['size'], 'mime' => $mime], 'low', $user['id']);
+
+            aether_json([
+                'ok' => true,
+                'url' => $url,
+                'original_name' => $f['name'],
+                'mime' => $mime,
+                'size' => (int)$f['size'],
+                'kind' => $kind,
+            ]);
+        }
+
         default:
             aether_error("Unknown action: $action", 400);
     }

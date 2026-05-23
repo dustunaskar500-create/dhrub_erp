@@ -5,7 +5,7 @@
      #adjustments, #invoices, #invoices/new, #invoices/:id, #reports
    ============================================================ */
 (function () {
-const API = '/aetherV2/erp/api/router.php';
+const API = '/stock_module/api/router.php';
 const STORE_TOKEN_KEYS = ['access_token','token','authToken','auth_token','jwt','userToken'];
 
 let token = null;
@@ -17,6 +17,11 @@ let stateList = [];
 function readToken() {
   for (const k of STORE_TOKEN_KEYS) {
     const v = localStorage.getItem(k);
+    if (v && v.split('.').length === 3) return v;
+  }
+  // Fallback: check sessionStorage too (some ERPs store there)
+  for (const k of STORE_TOKEN_KEYS) {
+    const v = sessionStorage.getItem(k);
     if (v && v.split('.').length === 3) return v;
   }
   return null;
@@ -98,8 +103,7 @@ const NAV = [
   ['#invoices', 'file-invoice-dollar', 'Tax Invoices'],
   ['#reports', 'chart-line', 'Reports & GST'],
   ['SECTION', ''],
-  ['/aetherV2/chat.php', 'comments', 'Ask Aether', true],
-  ['/aetherV2/dashboard.php', 'crown', 'Command Centre', true],
+  ['/', 'house', 'Back to ERP', true],
 ];
 
 function renderShell() {
@@ -1601,7 +1605,7 @@ function wireRowLinks() {
    ============================================================ */
 async function bootstrap() {
   token = readToken();
-  if (!token) { location.href = '/aetherV2/chat.php?signed_out=1'; return; }
+  if (!token) { location.href = '/index.php'; return; }
   try {
     const [orgRes, statesRes] = await Promise.all([api('ref_org'), api('ref_states')]);
     me = orgRes.user; me.role = orgRes.role;
