@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <meta name="theme-color" content="#0a0e13"/>
+    <meta name="description" content="Dhrub Foundation ERP System"/>
+    <link rel="preconnect" href="https://fonts.googleapis.com"/>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Manrope:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+    <title>Dhrub Foundation ERP</title>
+    <script defer="defer" src="static/js/main.be26a0f2.js"></script>
+    <link href="static/css/main.5d4a45a1.css" rel="stylesheet">
+    <link href="static/css/responsive.css" rel="stylesheet">
+    <link rel="icon" type="image/png" href="favicon.png">
+
+    <style>
+        /* ── Floating action buttons (CMS + Stock + Aether) ─────────── */
+        .erp-fab-stack {
+            position: fixed; bottom: 24px; right: 24px; z-index: 9998;
+            display: flex; flex-direction: column; align-items: flex-end; gap: 10px;
+        }
+        .erp-fab {
+            display: inline-flex; align-items: center; gap: 10px;
+            padding: 14px 22px; border-radius: 50px;
+            color: white; text-decoration: none; font-weight: 600; font-size: 0.95rem;
+            box-shadow: 0 6px 22px rgba(0,0,0,0.18);
+            transition: all 0.25s ease; cursor: pointer; border: none;
+            font-family: 'Manrope', system-ui, sans-serif;
+        }
+        .erp-fab:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(0,0,0,0.22); }
+        .erp-fab i { font-size: 1.05rem; }
+        .erp-fab.cms     { background: linear-gradient(135deg, #059669 0%, #047857 100%); }
+        .erp-fab.stock   { background: linear-gradient(135deg, #10b981 0%, #06d6a0 100%); }
+        .erp-fab.aether  { background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%); }
+        .erp-fab.compact { padding: 10px 14px; font-size: 0.85rem; opacity: 0.92; }
+        .erp-fab.compact:hover { opacity: 1; }
+
+        /* Theme toggle floating button */
+        .theme-fab {
+            position: fixed; top: 16px; right: 16px; z-index: 9999;
+            width: 40px; height: 40px; border-radius: 50%;
+            background: rgba(15,23,42,0.85); color: white;
+            border: 1px solid rgba(255,255,255,0.15);
+            display: inline-flex; align-items: center; justify-content: center;
+            cursor: pointer; font-size: 16px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+            transition: all 0.2s ease;
+        }
+        .theme-fab:hover { transform: scale(1.08); background: rgba(15,23,42,0.95); }
+        :root[data-theme="light"] .theme-fab { background: rgba(255,255,255,0.95); color: #1f2937; border-color: #e5e7eb; }
+        .theme-fab .sun { display: none; }
+        .theme-fab .moon { display: inline; }
+        :root[data-theme="light"] .theme-fab .sun  { display: inline; }
+        :root[data-theme="light"] .theme-fab .moon { display: none; }
+
+        /* Sidebar nav injection — these new items match React's sidebar pattern */
+        .erp-sidebar-stock-link {
+            display: flex; align-items: center; gap: 12px;
+            padding: 10px 16px; margin: 1px 8px;
+            text-decoration: none; color: inherit;
+            font-family: 'Manrope', system-ui, sans-serif; font-size: 0.92rem; font-weight: 500;
+            border-radius: 8px;
+            transition: background 0.15s, color 0.15s;
+        }
+        .erp-sidebar-stock-link:hover {
+            background: rgba(16, 185, 129, 0.08); color: #059669;
+        }
+        .erp-sidebar-stock-link i { width: 18px; text-align: center; opacity: 0.7; }
+        .erp-sidebar-stock-link:hover i { opacity: 1; }
+        .erp-sidebar-section-label {
+            font-size: 10px; font-weight: 700; letter-spacing: 0.1em;
+            text-transform: uppercase; color: #94a3b8;
+            padding: 14px 20px 6px;
+            font-family: 'Manrope', system-ui, sans-serif;
+        }
+        .erp-sidebar-extras { margin-top: 4px; }
+
+        @media (max-width: 768px) {
+            .erp-fab span { display: none; }
+            .erp-fab { padding: 16px; border-radius: 50%; }
+            .erp-fab.compact { padding: 12px; }
+        }
+    </style>
+</head>
+<body>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <div id="root"></div>
+
+    <!-- ── Theme toggle (light / dark for the FAB + Aether + Stock module) ── -->
+    <button class="theme-fab" id="theme-fab" title="Toggle light/dark theme" aria-label="Toggle theme">
+        <i class="fas fa-sun sun" aria-hidden="true"></i>
+        <i class="fas fa-moon moon" aria-hidden="true"></i>
+    </button>
+
+    <!-- ── ERP FAB stack — CMS · Stock & GST · Ask Aether ── -->
+    <div class="erp-fab-stack">
+        <a href="aether/chat.php" class="erp-fab aether compact" title="Ask Aether (AI assistant)">
+            <i class="fas fa-comments"></i><span>Ask Aether</span>
+        </a>
+        <a href="stock_module/" class="erp-fab stock" title="Stock receiving · GRN · Tax Invoices">
+            <i class="fas fa-boxes-stacked"></i><span>Stock &amp; GST</span>
+        </a>
+        <a href="cms/" class="erp-fab cms" title="Content Management System">
+            <i class="fas fa-edit"></i><span>Manage Content</span>
+        </a>
+    </div>
+
+    <!-- ── Aether — autonomous ERP brain (drop-in floating panel) ── -->
+    <!-- Relative path so it works on both dhrubfoundation.org/dhrub_erp/
+         AND erp.dhrubfoundation.org/ without code changes. -->
+    <script src="aether/panel.js" defer></script>
+
+    <!-- ── Stock & Aether bootstrap — theme, sidebar injection, GRN nudge ── -->
+    <script>
+    (function () {
+        // ── Theme persistence (applies before paint to avoid FOUC) ──
+        const savedTheme = localStorage.getItem('aether-theme')
+            || (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+        document.documentElement.dataset.theme = savedTheme;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const btn = document.getElementById('theme-fab');
+            if (btn) btn.addEventListener('click', () => {
+                const next = (document.documentElement.dataset.theme === 'dark') ? 'light' : 'dark';
+                document.documentElement.dataset.theme = next;
+                localStorage.setItem('aether-theme', next);
+            });
+        });
+
+        // ── Sidebar enhancer: watch the React tree for the existing
+        //    "Inventory" nav item, then append Stock & GST entries beneath it.
+        //    Idempotent — won't double-inject across re-renders.
+        function findInventoryAnchor() {
+            // Try common sidebar shells the React app might render
+            const candidates = document.querySelectorAll('nav a, aside a, .sidebar a, [role="navigation"] a, ul li a');
+            for (const el of candidates) {
+                const t = (el.textContent || '').trim();
+                if (/^inventory$/i.test(t) || /^stock$/i.test(t)) return el;
+            }
+            return null;
+        }
+
+        function injectSidebar() {
+            if (document.querySelector('.erp-sidebar-stock-link[data-key="stock-grn"]')) return; // already injected
+            const anchor = findInventoryAnchor();
+            if (!anchor) return;
+            const container = anchor.closest('li') || anchor.parentElement;
+            if (!container || !container.parentElement) return;
+
+            // Build a section label + 4 items
+            const labelEl = document.createElement('div');
+            labelEl.className = 'erp-sidebar-section-label erp-sidebar-extras';
+            labelEl.textContent = 'Stock & GST';
+
+            const items = [
+                ['stock_module/#grn',          'fa-clipboard-check',     'Goods Receipt (GRN)',  'stock-grn'],
+                ['stock_module/#invoices',     'fa-file-invoice-dollar', 'Tax Invoices',          'stock-invoices'],
+                ['stock_module/#adjustments',  'fa-scale-unbalanced',    'Stock Adjustments',     'stock-adj'],
+                ['stock_module/#reports',      'fa-chart-line',          'Reports & GSTR',        'stock-reports'],
+            ];
+
+            const after = container.parentElement;
+            after.appendChild(labelEl);
+            items.forEach(([href, icon, label, key]) => {
+                const a = document.createElement('a');
+                a.className = 'erp-sidebar-stock-link';
+                a.href = href;
+                a.setAttribute('data-key', key);
+                a.setAttribute('data-testid', 'sidebar-' + key);
+                a.innerHTML = `<i class="fas ${icon}"></i><span>${label}</span>`;
+                after.appendChild(a);
+            });
+        }
+
+        // Watch DOM for sidebar to appear (React renders async)
+        const observer = new MutationObserver(() => injectSidebar());
+        observer.observe(document.body, { childList: true, subtree: true });
+        // Also retry every 800ms for the first 10s
+        let attempts = 0;
+        const retry = setInterval(() => {
+            attempts++;
+            injectSidebar();
+            if (attempts > 12 || document.querySelector('.erp-sidebar-stock-link')) clearInterval(retry);
+        }, 800);
+
+        // ── Aether auto-nudge: when the user POSTs a new inventory IN transaction,
+        //    Aether asks: "Would you like me to generate a GRN for this?"
+        //    This is a non-intrusive hook on fetch(). We watch for POST /api/inventory/<id>/transactions
+        //    with body { transaction_type: 'in', ... } and pop a friendly modal.
+        const origFetch = window.fetch;
+        window.fetch = async function (input, init) {
+            const url = (typeof input === 'string') ? input : input?.url || '';
+            const method = (init && init.method) || (typeof input !== 'string' ? input?.method : '') || 'GET';
+            const res = await origFetch.apply(this, arguments);
+
+            try {
+                if (method.toUpperCase() === 'POST'
+                    && /\/api\/inventory\/\d+\/transactions\/?$/.test(url)) {
+                    const body = init && init.body;
+                    let payload = {};
+                    try { payload = typeof body === 'string' ? JSON.parse(body) : (body || {}); } catch (e) {}
+                    if (payload && (payload.transaction_type === 'in' || payload.type === 'in')) {
+                        // Fire-and-forget GRN auto-generation through our bridge
+                        showGrnNudge(url, payload, res.clone());
+                    }
+                }
+            } catch (e) { /* never break the host app */ }
+            return res;
+        };
+
+        function showGrnNudge(url, payload, resClone) {
+            // Wait for the transaction to actually succeed before nudging
+            resClone.json().then(j => {
+                if (!j || j.error) return;
+                const itemId = (url.match(/\/api\/inventory\/(\d+)/) || [])[1];
+                const modal = document.createElement('div');
+                modal.innerHTML = `
+                    <div style="position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:99999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(3px)">
+                      <div style="background:#fff;border-radius:14px;padding:24px 28px;max-width:440px;font-family:'Manrope',sans-serif;box-shadow:0 24px 64px rgba(0,0,0,0.32)">
+                        <div style="display:flex;gap:14px;align-items:start;margin-bottom:14px">
+                          <div style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#10b981,#06d6a0);color:white;display:flex;align-items:center;justify-content:center;font-size:18px"><i class="fas fa-truck-arrow-right"></i></div>
+                          <div>
+                            <h3 style="margin:0 0 4px;font-family:'Outfit';font-weight:600;font-size:1.1rem;color:#0f172a">New stock-in detected</h3>
+                            <p style="margin:0;font-size:0.92rem;color:#475569;line-height:1.5">A goods-receipt note (GRN) keeps your audit trail proper. Shall I draft one for this delivery, sir?</p>
+                          </div>
+                        </div>
+                        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:18px">
+                          <button data-decline style="background:transparent;border:1px solid #cbd5e1;color:#475569;padding:9px 16px;border-radius:8px;font-weight:500;cursor:pointer;font-family:'Manrope'">Not now</button>
+                          <a data-accept style="background:linear-gradient(135deg,#10b981,#059669);color:white;padding:9px 18px;border-radius:8px;font-weight:600;cursor:pointer;text-decoration:none;font-family:'Manrope'" href="stock_module/#grn/new?item=${itemId}&qty=${payload.quantity||1}">Draft GRN</a>
+                        </div>
+                      </div>
+                    </div>`;
+                document.body.appendChild(modal);
+                modal.querySelector('[data-decline]').addEventListener('click', () => modal.remove());
+                modal.querySelector('[data-accept]').addEventListener('click', () => setTimeout(() => modal.remove(), 200));
+                setTimeout(() => { if (modal.parentNode) modal.remove(); }, 12000);
+            }).catch(() => {});
+        }
+    })();
+    </script>
+</body>
+</html>

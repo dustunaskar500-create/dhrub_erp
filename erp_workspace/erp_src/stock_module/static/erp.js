@@ -19,11 +19,6 @@ function readToken() {
     const v = localStorage.getItem(k);
     if (v && v.split('.').length === 3) return v;
   }
-  // Fallback: check sessionStorage too (some ERPs store there)
-  for (const k of STORE_TOKEN_KEYS) {
-    const v = sessionStorage.getItem(k);
-    if (v && v.split('.').length === 3) return v;
-  }
   return null;
 }
 
@@ -34,7 +29,7 @@ async function api(action, body = {}) {
     body: JSON.stringify(body),
   });
   if (r.status === 401) {
-    location.href = '/aetherV2/chat.php';
+    location.href = '/index.php';
     throw new Error('auth');
   }
   let j;
@@ -49,7 +44,7 @@ async function apiFormData(action, formData) {
     headers: { 'Authorization': 'Bearer ' + token },
     body: formData,
   });
-  if (r.status === 401) { location.href = '/aetherV2/chat.php'; throw new Error('auth'); }
+  if (r.status === 401) { location.href = '/index.php'; throw new Error('auth'); }
   const j = await r.json();
   if (!r.ok || j.error) throw new Error(j.error || 'Upload failed');
   return j;
@@ -137,7 +132,7 @@ function renderShell() {
             <div class="name">${esc(userName)}</div>
             <div class="role">${esc(role)}</div>
           </div>
-          <a href="/aetherV2/chat.php" class="icon-btn" title="Back to Aether"><i class="fa-solid fa-arrow-left"></i></a>
+          <a href="/aether/chat.php" class="icon-btn" title="Back to Aether"><i class="fa-solid fa-arrow-left"></i></a>
         </div>
       </aside>
       <main class="content">
@@ -619,8 +614,9 @@ function openVendorEditor(v, onSaved) {
    GRN
    ============================================================ */
 async function renderGrnList(...rest) {
-  if (rest.length && rest[0] === 'new') return renderGrnEditor(null);
-  if (rest.length && rest[0]) return renderGrnDetail(rest[0]);
+  const first = (rest[0] || '').split('?')[0];
+  if (first === 'new') return renderGrnEditor(null);
+  if (first) return renderGrnDetail(first);
 
   setCrumb('Goods Receipt');
   setTopActions(`<a class="pill-btn btn-primary" href="#grn/new" data-testid="new-grn"><i class="fa-solid fa-plus"></i><span>New receipt</span></a>`);
@@ -676,6 +672,12 @@ async function renderGrnEditor(grnId) {
   setCrumb('Goods Receipt', grnId ? 'Edit #' + grnId : 'New receipt');
   setTopActions(`<a href="#grn" class="pill-btn"><i class="fa-solid fa-arrow-left"></i><span>Back</span></a>`);
   setPage(`<div class="empty"><i class="fa-solid fa-spinner fa-spin"></i></div>`);
+
+  // Auto-prefill from query string (e.g. #grn/new?item=4&qty=10)
+  const qs = (location.hash.split('?')[1] || '');
+  const params = Object.fromEntries(new URLSearchParams(qs));
+  const autoItemId = +params.item || 0;
+  const autoQty    = +params.qty || 0;
 
   // Pre-fetch vendors and item list
   const [vRes, iRes] = await Promise.all([
@@ -785,7 +787,21 @@ async function renderGrnEditor(grnId) {
     });
     row.querySelector('.x').addEventListener('click', () => row.remove());
   }
-  if (grnItems.length) grnItems.forEach(lineRow); else lineRow();
+  if (grnItems.length) grnItems.forEach(lineRow);
+  else if (autoItemId) {
+    const item = items.find(x => +x.id === autoItemId);
+    if (item) lineRow({
+      item_id: autoItemId,
+      description: item.item_name,
+      hsn_code: item.hsn_code,
+      unit: item.unit,
+      qty_ordered: autoQty,
+      qty_received: autoQty,
+      unit_cost: item.cost_price,
+    });
+    else lineRow();
+  }
+  else lineRow();
   document.getElementById('add-line').addEventListener('click', () => lineRow());
 
   // Attachments
@@ -1464,91 +1480,252 @@ function openPaymentDrawer(inv, onSaved) {
 }
 
 /* ============================================================
-   Reports / GST Summary
+   Reports — filterable, exportable, importable
    ============================================================ */
 async function renderReports() {
-  setCrumb('Reports & GST');
+  setCrumb('Reports');
   setTopActions('');
-  const from = new Date(); from.setDate(from.getDate() - 30);
-  const fromS = from.toISOString().slice(0,10);
-  const toS = todayISO();
+  const today = todayISO();
+  const monthStart = new Date(); monthStart.setDate(1);
+  const fromS = monthStart.toISOString().slice(0,10);
+  const [vendorsRes] = await Promise.all([api('vendor_list')]);
+  const vendors = vendorsRes.vendors.filter(v => +v.is_active === 1);
+
   setPage(`
-    <h2>GST Summary &amp; P&amp;L</h2>
-    <p class="lede">HSN-wise GST summary (GSTR-1 Table-12 style) + stock P&amp;L impact.</p>
-    <div class="toolbar">
-      <label>From <input type="date" id="r-from" value="${fromS}"></label>
-      <label>To <input type="date" id="r-to" value="${toS}"></label>
-      <button class="pill-btn btn-primary" id="r-go"><i class="fa-solid fa-magnifying-glass-chart"></i> Build</button>
-      <div class="grow"></div>
-      <button class="pill-btn" id="r-csv"><i class="fa-solid fa-file-csv"></i> Export</button>
+    <h2>Reports &amp; analytics</h2>
+    <p class="lede">Stock, purchases, sales, P&amp;L and GSTR-1 — all filterable, all exportable.</p>
+
+    <div class="card">
+      <div class="card-h"><h3>Choose a report</h3></div>
+      <div class="report-tabs">
+        ${[
+          ['stock','boxes-stacked','Stock'],
+          ['purchase','clipboard-check','Purchase'],
+          ['sales','file-invoice-dollar','Sales'],
+          ['pnl','scale-unbalanced','Stock P&L'],
+          ['gstr1','receipt','GSTR-1'],
+        ].map(([k,i,l]) => `<button class="report-tab" data-kind="${k}" data-testid="report-tab-${k}">
+          <i class="fa-solid fa-${i}"></i> ${l}
+        </button>`).join('')}
+      </div>
     </div>
-    <div id="r-result"><div class="empty"><i class="fa-solid fa-chart-line"></i><h4>Pick a date range and click Build</h4></div></div>
+
+    <div class="card">
+      <div class="card-h">
+        <h3 id="report-title">Stock report</h3>
+        <div class="actions">
+          <button class="btn-sm pill-btn" id="csv-template" data-testid="csv-template"><i class="fa-solid fa-file-circle-question"></i> CSV Template</button>
+          <button class="btn-sm pill-btn" id="csv-upload" data-testid="csv-upload"><i class="fa-solid fa-upload"></i> Import CSV</button>
+          <input type="file" id="csv-upload-input" accept=".csv,text/csv" style="display:none">
+          <button class="btn-sm pill-btn" id="export-csv" data-testid="export-csv"><i class="fa-solid fa-file-csv"></i> Export CSV</button>
+          <button class="btn-sm pill-btn btn-primary" id="export-pdf" data-testid="export-pdf"><i class="fa-solid fa-file-pdf"></i> Export PDF</button>
+        </div>
+      </div>
+
+      <div class="filter-grid" id="filter-grid">
+        <!-- Filter inputs populated by setFilters() per report kind -->
+      </div>
+
+      <div id="report-result" style="margin-top:12px"></div>
+    </div>
   `);
 
+  let currentKind = 'stock';
+  let lastFilters = {};
+
+  function activateTab(kind) {
+    currentKind = kind;
+    document.querySelectorAll('.report-tab').forEach(b => b.classList.toggle('active', b.dataset.kind === kind));
+    document.getElementById('report-title').textContent = ({
+      stock: 'Stock report', purchase: 'Purchase / GRN report', sales: 'Sales / Invoices report',
+      pnl: 'Stock P&L report', gstr1: 'GSTR-1 HSN summary',
+    })[kind];
+    document.getElementById('csv-upload').style.display = kind === 'stock' ? '' : 'none';
+    document.getElementById('csv-template').style.display = kind === 'stock' ? '' : 'none';
+    setFilters(kind);
+    build();
+  }
+
+  function setFilters(kind) {
+    const f = document.getElementById('filter-grid');
+    if (kind === 'stock') {
+      f.innerHTML = `
+        <div class="field"><label>Search</label><input id="f-q" placeholder="SKU, name, HSN, barcode" data-testid="f-q"></div>
+        <div class="field"><label>Category</label>
+          <select id="f-cat">
+            <option value="">All</option>
+            ${['food','clothing','medical','educational','household','equipment','other'].map(c => `<option value="${c}">${c}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field"><label>Min stock value</label><input id="f-minval" type="number" placeholder="0"></div>
+        <div class="field"><label>&nbsp;</label><label class="checkbox-field"><input type="checkbox" id="f-low" data-testid="f-low"> Low-stock only</label></div>
+      `;
+    } else if (kind === 'purchase') {
+      f.innerHTML = `
+        <div class="field"><label>From</label><input id="f-from" type="date" value="${fromS}"></div>
+        <div class="field"><label>To</label><input id="f-to" type="date" value="${today}"></div>
+        <div class="field"><label>Vendor</label>
+          <select id="f-vendor"><option value="">All</option>${vendors.map(v => `<option value="${v.id}">${esc(v.name)}</option>`).join('')}</select>
+        </div>
+        <div class="field"><label>Status</label>
+          <select id="f-status"><option value="">All</option>
+            <option value="draft">Draft</option><option value="posted">Posted</option><option value="disputed">Disputed</option>
+          </select>
+        </div>
+      `;
+    } else if (kind === 'sales') {
+      f.innerHTML = `
+        <div class="field"><label>From</label><input id="f-from" type="date" value="${fromS}"></div>
+        <div class="field"><label>To</label><input id="f-to" type="date" value="${today}"></div>
+        <div class="field"><label>Payment status</label>
+          <select id="f-payst"><option value="">All</option>
+            <option value="unpaid">Unpaid</option><option value="partial">Partial</option><option value="paid">Paid</option>
+          </select>
+        </div>
+        <div class="field"><label>Invoice type</label>
+          <select id="f-itype"><option value="">All</option>
+            <option value="tax_invoice">Tax Invoice</option>
+            <option value="bill_of_supply">Bill of Supply</option>
+            <option value="credit_note">Credit Note</option>
+          </select>
+        </div>
+      `;
+    } else if (kind === 'pnl' || kind === 'gstr1') {
+      f.innerHTML = `
+        <div class="field"><label>From</label><input id="f-from" type="date" value="${fromS}"></div>
+        <div class="field"><label>To</label><input id="f-to" type="date" value="${today}"></div>
+      `;
+    }
+  }
+
+  function gatherFilters() {
+    const filters = {};
+    if (currentKind === 'stock') {
+      filters.q = g('f-q');
+      filters.category = g('f-cat');
+      filters.low_stock = document.getElementById('f-low')?.checked;
+      filters.min_value = +g('f-minval') || 0;
+    } else {
+      filters.from = g('f-from');
+      filters.to   = g('f-to');
+      if (currentKind === 'purchase') {
+        filters.vendor_id = +g('f-vendor') || 0;
+        filters.status = g('f-status');
+      } else if (currentKind === 'sales') {
+        filters.payment_status = g('f-payst');
+        filters.invoice_type = g('f-itype');
+      }
+    }
+    return filters;
+  }
+
   async function build() {
-    const r = document.getElementById('r-result');
-    r.innerHTML = `<div class="empty"><i class="fa-solid fa-spinner fa-spin"></i></div>`;
-    const fromV = g('r-from'), toV = g('r-to');
-    const [gst, pnl] = await Promise.all([
-      api('invoice_gst_summary', { from: fromV, to: toV }),
-      api('stock_pnl', { from: fromV, to: toV }),
-    ]);
-    r.innerHTML = `
-      <div class="kpis">
-        <div class="kpi good"><div class="label">B2B revenue</div><div class="value">${money(gst.summary.b2b)}</div></div>
-        <div class="kpi info"><div class="label">B2C revenue</div><div class="value">${money(gst.summary.b2c)}</div></div>
-        <div class="kpi violet"><div class="label">Tax collected</div><div class="value">${money(gst.summary.total_tax)}</div></div>
-        <div class="kpi bad"><div class="label">Stock losses (P&L)</div><div class="value">${money(pnl.totals.realised_loss)}</div></div>
-      </div>
+    const el = document.getElementById('report-result');
+    el.innerHTML = `<div class="empty"><i class="fa-solid fa-spinner fa-spin"></i></div>`;
+    lastFilters = gatherFilters();
+    try {
+      const j = await api('reports_' + currentKind, lastFilters);
+      renderReportResult(currentKind, j);
+    } catch (e) { el.innerHTML = `<div class="empty"><i class="fa-solid fa-circle-exclamation"></i><p>${esc(e.message)}</p></div>`; }
+  }
 
-      <div class="card">
-        <div class="card-h"><h3>HSN-wise tax summary</h3></div>
-        ${gst.hsn.length ? `
-          <table class="tbl"><thead><tr>
-            <th>HSN</th><th class="num">Lines</th><th class="num">Qty</th>
-            <th class="num">Taxable</th><th class="num">CGST</th><th class="num">SGST</th><th class="num">IGST</th>
-          </tr></thead><tbody>
-            ${gst.hsn.map(h => `<tr>
-              <td class="font-mono"><strong>${esc(h.hsn_code || '—')}</strong></td>
-              <td class="num">${esc(h.lines)}</td>
-              <td class="num">${esc(h.qty)}</td>
-              <td class="num">${money(h.taxable_value)}</td>
-              <td class="num">${money(h.cgst)}</td>
-              <td class="num">${money(h.sgst)}</td>
-              <td class="num">${money(h.igst)}</td>
-            </tr>`).join('')}
-          </tbody></table>
-        ` : '<div class="empty"><i class="fa-solid fa-receipt"></i><p>No issued invoices in this range</p></div>'}
+  function renderReportResult(kind, j) {
+    const el = document.getElementById('report-result');
+    const totals = j.totals || j.summary || {};
+    const rows = j.rows || j.hsn || [];
+    const totalsHtml = Object.keys(totals).length ? `
+      <div class="kpis" style="margin-bottom:14px">
+        ${Object.entries(totals).map(([k,v]) => `<div class="kpi"><div class="label">${esc(k.replace(/_/g,' '))}</div><div class="value">${typeof v === 'number' || (!isNaN(+v) && k !== 'count' && k !== 'items') ? money(v) : esc(v)}</div></div>`).join('')}
+      </div>` : '';
+    if (!rows.length) {
+      el.innerHTML = totalsHtml + `<div class="empty"><i class="fa-solid fa-inbox"></i><h4>No data matches the filters</h4></div>`;
+      return;
+    }
+    const headers = Object.keys(rows[0]);
+    el.innerHTML = totalsHtml + `
+      <div style="overflow-x:auto;border:1px solid var(--card-border);border-radius:11px">
+        <table class="tbl" data-testid="report-table">
+          <thead><tr>${headers.map(h => `<th>${esc(h.replace(/_/g,' '))}</th>`).join('')}</tr></thead>
+          <tbody>
+            ${rows.map(r => `<tr>${headers.map(h => {
+              const v = r[h];
+              const isMoney = ['value','total','cgst','sgst','igst','price','margin','paid','taxable','grand'].some(t => h.includes(t));
+              return `<td class="${isMoney ? 'num' : ''}">${isMoney && !isNaN(+v) ? money(v) : esc(v ?? '')}</td>`;
+            }).join('')}</tr>`).join('')}
+          </tbody>
+        </table>
       </div>
-
-      <div class="card">
-        <div class="card-h"><h3>Stock losses breakdown</h3></div>
-        ${pnl.breakdown.length ? `
-          <table class="tbl"><thead><tr>
-            <th>Type</th><th class="num">Count</th><th class="num">Quantity</th><th class="num">Value impact</th>
-          </tr></thead><tbody>
-            ${pnl.breakdown.map(b => `<tr>
-              <td><span class="pill ${b.adj_type}">${esc(b.adj_type)}</span></td>
-              <td class="num">${esc(b.cnt)}</td>
-              <td class="num">${esc(b.total_qty)}</td>
-              <td class="num"><span class="amt ${['damage','shortage','loss','wastage','theft','return_out'].includes(b.adj_type) ? 'loss' : ''}">${money(b.total_value)}</span></td>
-            </tr>`).join('')}
-          </tbody></table>
-        ` : '<div class="empty"><i class="fa-solid fa-check"></i><p>No adjustments in this range</p></div>'}
-      </div>
+      <div class="muted" style="margin-top:8px;font-family:'Crimson Pro';font-style:italic">${rows.length} row(s)</div>
     `;
   }
-  document.getElementById('r-go').addEventListener('click', build);
-  document.getElementById('r-csv').addEventListener('click', () => {
-    const fromV = g('r-from'), toV = g('r-to');
-    // Build CSV from current view
-    const rows = [...document.querySelectorAll('#r-result table.tbl tr')].map(tr => [...tr.children].map(td => `"${(td.innerText || '').replace(/"/g,'""')}"`).join(','));
-    if (!rows.length) return toast('Build the report first', 'warn');
-    const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-    a.download = `gst-summary-${fromV}-to-${toV}.csv`; a.click();
+
+  // Wire tab clicks
+  document.querySelectorAll('.report-tab').forEach(b => b.addEventListener('click', () => activateTab(b.dataset.kind)));
+
+  // Wire filter change (debounced)
+  document.getElementById('filter-grid').addEventListener('input', debounce(build, 350));
+  document.getElementById('filter-grid').addEventListener('change', build);
+
+  // Export buttons
+  document.getElementById('export-csv').addEventListener('click', () => downloadReport('csv'));
+  document.getElementById('export-pdf').addEventListener('click', () => downloadReport('pdf'));
+
+  function downloadReport(format) {
+    const filters = gatherFilters();
+    const url = API + '?action=reports_export';
+    // POST -> create a temporary form to handle file download with auth
+    fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+      body: JSON.stringify({ kind: currentKind, format, filters }),
+    }).then(r => {
+      if (!r.ok) throw new Error('Export failed (' + r.status + ')');
+      return r.blob();
+    }).then(blob => {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = currentKind + '-report-' + todayISO() + '.' + format;
+      document.body.appendChild(a); a.click();
+      setTimeout(() => { a.remove(); URL.revokeObjectURL(a.href); }, 1000);
+      toast(`${format.toUpperCase()} downloaded`);
+    }).catch(e => toast(e.message, 'error'));
+  }
+
+  // CSV template
+  document.getElementById('csv-template').addEventListener('click', () => {
+    const link = document.createElement('a');
+    link.href = API + '?action=reports_csv_template&kind=stock';
+    link.target = '_blank';
+    // Add auth via fetch
+    fetch(link.href, { headers: { 'Authorization': 'Bearer ' + token } })
+      .then(r => r.blob()).then(blob => {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'stock_template.csv';
+        a.click();
+      });
   });
-  build();
+
+  // CSV upload
+  document.getElementById('csv-upload').addEventListener('click', () => document.getElementById('csv-upload-input').click());
+  document.getElementById('csv-upload-input').addEventListener('change', async (e) => {
+    const file = e.target.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        const r = await api('reports_import_csv', { kind: 'stock', csv: reader.result });
+        toast(`Imported ${r.imported}, skipped ${r.skipped}`);
+        if (r.errors && r.errors.length) {
+          alert('Some rows failed:\n\n' + r.errors.join('\n'));
+        }
+        build();
+      } catch (err) { toast(err.message, 'error'); }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  });
+
+  activateTab('stock');
 }
 
 /* ============================================================
@@ -1612,7 +1789,7 @@ async function bootstrap() {
     org = orgRes.org;
     stateList = statesRes.states;
   } catch (e) {
-    document.getElementById('app').innerHTML = `<div class="empty" style="padding-top:140px"><i class="fa-solid fa-circle-exclamation"></i><h4>Could not authenticate</h4><p>${esc(e.message)}</p><a class="pill-btn" href="/aetherV2/chat.php" style="margin-top:14px">Back to Aether</a></div>`;
+    document.getElementById('app').innerHTML = `<div class="empty" style="padding-top:140px"><i class="fa-solid fa-circle-exclamation"></i><h4>Could not authenticate</h4><p>${esc(e.message)}</p><a class="pill-btn" href="/aether/chat.php" style="margin-top:14px">Back to Aether</a></div>`;
     return;
   }
   renderShell();

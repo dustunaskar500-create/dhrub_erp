@@ -40,6 +40,7 @@ try {
         'ref'     => 'ref.php',
         'dash'    => 'dashboard.php',
         'seed'    => 'seed.php',
+        'reports' => 'reports.php',
     ];
     if (!isset($map[$module])) dhrub_error("Unknown action: $action", 400);
     require_once $modulesDir . '/' . $map[$module];

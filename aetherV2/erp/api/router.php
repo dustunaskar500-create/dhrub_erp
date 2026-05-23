@@ -59,6 +59,10 @@ try {
             require_once __DIR__ . '/seed.php';
             erp_seed_dispatch($action, $user);
             break;
+        case 'reports':
+            require_once __DIR__ . '/reports.php';
+            erp_reports_dispatch($action, $user);
+            break;
         default:
             erp_error("Unknown action: $action", 400);
     }
